@@ -1,0 +1,8 @@
+{
+  "buildCommand": null,
+  "outputDirectory": "ceo-dashboard/frontend",
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://ceo-dashboard-backend.onrender.com/api/$1" }
+  ]
+}
