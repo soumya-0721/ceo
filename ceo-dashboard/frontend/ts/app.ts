@@ -1,4 +1,5 @@
 declare var bootstrap: any;
+declare var api: any;
 let currentUser: any = null;
 let currentPage = 'dashboard';
 let currentPageDate = new Date();
