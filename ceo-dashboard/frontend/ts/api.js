@@ -1,4 +1,4 @@
-"use strict";
+
 const API_BASE = '/api';
 class ApiService {
     constructor() {

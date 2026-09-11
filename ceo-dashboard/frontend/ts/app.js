@@ -1,4 +1,4 @@
-"use strict";
+
 let currentUser = null;
 let currentPage = 'dashboard';
 let currentPageDate = new Date();
