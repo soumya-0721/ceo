@@ -355,6 +355,66 @@ app.get('/api/audit', authenticateToken, async (req, res) => {
     catch { res.status(500).json({ error: 'Failed' }); }
 });
 
+// ===== Public Booking (No Auth Required) =====
+app.get('/api/public/availability', async (req, res) => {
+    try {
+        const { date } = req.query;
+        if (!date) return res.status(400).json({ error: 'Date required' });
+        const scheds = await pool.query(`SELECT start_time, end_time FROM schedules WHERE schedule_date=$1 AND status='active' ORDER BY start_time`, [date]);
+        const focus = await pool.query(`SELECT start_time, end_time FROM focus_sessions WHERE focus_date=$1 AND status='active' ORDER BY start_time`, [date]);
+        const booked = await pool.query(`SELECT preferred_time, duration FROM bookings WHERE booking_date=$1 AND status IN ('pending','accepted') ORDER BY preferred_time`, [date]);
+        const all = [...scheds.rows, ...focus.rows];
+        const bookedSlots = booked.rows.map(b => {
+            const [h,m] = b.preferred_time.split(':').map(Number);
+            const endMin = h*60+m+parseInt(b.duration);
+            return { start_time: b.preferred_time, end_time: `${String(Math.floor(endMin/60)).padStart(2,'0')}:${String(endMin%60).padStart(2,'0')}` };
+        });
+        const allBusy = [...all, ...bookedSlots].sort((a,b) => a.start_time.localeCompare(b.start_time));
+        let cur = '09:00'; const free = [];
+        for (const b of allBusy) { if (cur < b.start_time) { free.push({ start_time: cur, end_time: b.start_time }); } if (b.end_time > cur) cur = b.end_time; }
+        if (cur < '18:00') free.push({ start_time: cur, end_time: '18:00' });
+        res.json({ date, available: free });
+    } catch (e) { res.status(500).json({ error: 'Failed to check availability' }); }
+});
+
+app.get('/api/public/schedule', async (req, res) => {
+    try {
+        const r = await pool.query(`SELECT schedule_date, start_time, end_time, title, schedule_type FROM schedules WHERE schedule_date >= CURRENT_DATE AND status='active' AND schedule_type != 'personal' ORDER BY schedule_date, start_time`);
+        res.json(r.rows);
+    } catch (e) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/public/bookings', async (req, res) => {
+    try {
+        const { name, phone, email, company, purpose, date, time, duration, notes } = req.body;
+        if (!name || !phone || !purpose || !date || !time) return res.status(400).json({ error: 'Name, phone, purpose, date and time are required' });
+        const conflict = await pool.query(`SELECT id FROM bookings WHERE booking_date=$1 AND preferred_time=$2 AND status IN ('pending','accepted')`, [date, time]);
+        if (conflict.rows.length > 0) return res.status(409).json({ error: 'This time slot is already booked. Please choose another.' });
+        const ceoUser = await pool.query(`SELECT id FROM users WHERE role='ceo' LIMIT 1`);
+        const coordUser = await pool.query(`SELECT id FROM users WHERE role='coordinator' LIMIT 1`);
+        const ceoId = ceoUser.rows[0]?.id;
+        const coordId = coordUser.rows[0]?.id;
+        const booking = await pool.query(
+            `INSERT INTO bookings (booked_by_name,booked_by_email,booked_by_phone,company,purpose,booking_date,preferred_time,duration,status,notes) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9) RETURNING *`,
+            [name, email||'', phone, company||'', purpose, date, time, duration||30, notes||'']
+        );
+        const newBooking = booking.rows[0];
+        if (ceoId) {
+            await pool.query(
+                `INSERT INTO notifications (user_id,from_user_id,title,message,action_type,record_type,record_id) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+                [ceoId, null, 'New Booking Request', `${name} wants to meet on ${date} at ${time}. Purpose: ${purpose}. Phone: ${phone}. Duration: ${duration||30}min.`, 'booking_created', 'booking', newBooking.id]
+            );
+        }
+        if (coordId && coordId !== ceoId) {
+            await pool.query(
+                `INSERT INTO notifications (user_id,from_user_id,title,message,action_type,record_type,record_id) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+                [coordId, null, 'New Booking Request', `${name} wants to meet on ${date} at ${time}. Purpose: ${purpose}. Phone: ${phone}. Duration: ${duration||30}min. Please review.`, 'booking_created', 'booking', newBooking.id]
+            );
+        }
+        res.status(201).json({ message: 'Booking request submitted successfully! You will be contacted soon.', booking: newBooking });
+    } catch (e) { res.status(500).json({ error: 'Failed to submit booking' }); }
+});
+
 // ===== Health =====
 app.get('/api/health', (_req, res) => { res.json({ status: 'ok' }); });
 

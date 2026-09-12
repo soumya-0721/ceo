@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book a Meeting — Next360 CEO</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root{--forest:#173F35;--forest-dark:#0F2D26;--green:#2F6658;--cream:#F8F6F1;--white:#FFFFFF;--gold:#C9A227;--gold-soft:#E8D48B;--success:#3E8E68;--warning:#D99A2B;--danger:#C94A4A;--info:#4B7FA3;--text:#1A1A1A;--text-secondary:#6B7280;--text-muted:#9CA3AF;--border:#E5E7EB;--radius:12px;--shadow-sm:0 1px 3px rgba(0,0,0,.06);--shadow-md:0 4px 12px rgba(0,0,0,.06);--shadow-lg:0 10px 30px rgba(0,0,0,.08)}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:var(--cream);color:var(--text);line-height:1.6}
+        
+        .hero{background:linear-gradient(135deg,var(--forest) 0%,var(--green) 100%);color:#fff;padding:60px 0 80px;text-align:center;position:relative;overflow:hidden}
+        .hero::before{content:'';position:absolute;top:-50%;right:-20%;width:600px;height:600px;background:radial-gradient(circle,rgba(201,162,39,.12) 0%,transparent 70%);border-radius:50%}
+        .hero::after{content:'';position:absolute;bottom:-40%;left:-15%;width:500px;height:500px;background:radial-gradient(circle,rgba(255,255,255,.05) 0%,transparent 70%);border-radius:50%}
+        .hero *{position:relative;z-index:1}
+        .hero-logo{width:64px;height:64px;border-radius:16px;margin-bottom:20px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.2))}
+        .hero h1{font-size:32px;font-weight:800;letter-spacing:-.5px;margin-bottom:6px}
+        .hero .subtitle{font-size:16px;color:rgba(255,255,255,.75);font-weight:400;margin-bottom:32px}
+        .hero-cta{display:inline-flex;align-items:center;gap:8px;background:var(--gold);color:var(--forest-dark);padding:12px 28px;border-radius:50px;font-weight:600;font-size:15px;text-decoration:none;transition:all .2s;box-shadow:0 4px 15px rgba(201,162,39,.3)}
+        .hero-cta:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(201,162,39,.4);color:var(--forest-dark)}
+        
+        .login-link{position:absolute;top:20px;right:24px;z-index:10;display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.8);text-decoration:none;font-size:13px;font-weight:500;padding:8px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.2);transition:all .2s}
+        .login-link:hover{background:rgba(255,255,255,.1);color:#fff}
+        
+        .section{padding:60px 0}
+        .section-title{font-size:22px;font-weight:700;color:var(--forest);margin-bottom:8px}
+        .section-sub{font-size:14px;color:var(--text-secondary);margin-bottom:32px}
+        
+        .booking-card{background:var(--white);border-radius:16px;padding:36px;box-shadow:var(--shadow-md);border:1px solid rgba(0,0,0,.04);max-width:680px;margin:0 auto}
+        .booking-card label{font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:6px}
+        .booking-card .form-control,.booking-card .form-select{border:1px solid var(--border);border-radius:var(--radius);height:46px;font-size:14px;transition:border-color .2s}
+        .booking-card .form-control:focus,.booking-card .form-select:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(47,102,88,.1)}
+        .booking-card textarea.form-control{height:auto}
+        
+        .btn-book{background:var(--gold);color:var(--forest-dark);border:none;padding:14px 32px;border-radius:50px;font-weight:700;font-size:15px;width:100%;transition:all .2s;box-shadow:0 4px 15px rgba(201,162,39,.2)}
+        .btn-book:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(201,162,39,.3);background:var(--gold)}
+        .btn-book:disabled{opacity:.6;transform:none}
+        
+        .slots-section{background:var(--white);border-radius:16px;padding:28px;box-shadow:var(--shadow-sm);border:1px solid rgba(0,0,0,.04);max-width:680px;margin:0 auto 28px}
+        .slot-badge{display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:500;margin:4px;cursor:default;transition:all .2s}
+        .slot-free{background:rgba(62,142,104,.1);color:var(--success);border:1px solid rgba(62,142,104,.2)}
+        .slot-busy{background:rgba(201,74,74,.06);color:var(--danger);border:1px solid rgba(201,74,74,.15);text-decoration:line-through;opacity:.6}
+        .slot-free.selected{background:var(--forest);color:#fff;border-color:var(--forest)}
+        
+        .date-picker{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+        .date-chip{padding:10px 18px;border-radius:10px;border:2px solid var(--border);cursor:pointer;text-align:center;transition:all .2s;min-width:80px}
+        .date-chip:hover{border-color:var(--green)}
+        .date-chip.active{background:var(--forest);color:#fff;border-color:var(--forest)}
+        .date-chip .day{font-size:20px;font-weight:700;line-height:1.2}
+        .date-chip .label{font-size:11px;font-weight:500;opacity:.7;text-transform:uppercase}
+        
+        .success-box{background:rgba(62,142,104,.08);border:1px solid rgba(62,142,104,.2);border-radius:12px;padding:32px;text-align:center;display:none}
+        .success-box .icon{font-size:48px;color:var(--success);margin-bottom:12px}
+        .success-box h3{font-size:18px;font-weight:700;color:var(--forest);margin-bottom:8px}
+        .success-box p{color:var(--text-secondary);font-size:14px}
+        
+        .error-msg{background:rgba(201,74,74,.08);border:1px solid rgba(201,74,74,.2);border-radius:8px;padding:12px 16px;color:var(--danger);font-size:13px;margin-bottom:16px;display:none}
+        
+        .footer{text-align:center;padding:40px 0;color:var(--text-muted);font-size:13px;border-top:1px solid var(--border);margin-top:40px}
+        .footer a{color:var(--green);text-decoration:none;font-weight:500}
+        
+        @media(max-width:768px){
+            .hero{padding:40px 0 60px}
+            .hero h1{font-size:24px}
+            .booking-card{margin:0 16px;padding:24px}
+            .slots-section{margin:0 16px 20px}
+            .login-link{top:12px;right:12px;font-size:12px;padding:6px 12px}
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="login-link"><i class="bi bi-box-arrow-in-right"></i> Admin Login</a>
+
+    <section class="hero">
+        <img src="img/logo.svg" alt="Next360" class="hero-logo">
+        <h1>Next360 CEO Command Center</h1>
+        <p class="subtitle">Schedule a meeting with our CEO — Organic Products & Business Strategy</p>
+        <a href="#booking" class="hero-cta"><i class="bi bi-calendar-plus"></i> Book a Slot</a>
+    </section>
+
+    <section class="section" id="booking">
+        <div class="container">
+            <div class="text-center mb-4">
+                <h2 class="section-title">Schedule a Meeting</h2>
+                <p class="section-sub">Select a date and pick an available time slot to request a meeting with the CEO.</p>
+            </div>
+
+            <div class="slots-section">
+                <h6 style="font-weight:700;color:var(--forest);margin-bottom:12px;"><i class="bi bi-calendar3"></i> Select a Date</h6>
+                <div class="date-picker" id="date-picker"></div>
+                <h6 style="font-weight:700;color:var(--forest);margin:16px 0 8px;"><i class="bi bi-clock"></i> Available Slots</h6>
+                <div id="slots-container"><p class="text-muted" style="font-size:13px;">Pick a date to see available slots</p></div>
+            </div>
+
+            <div class="booking-card">
+                <h5 style="font-weight:700;color:var(--forest);margin-bottom:20px;"><i class="bi bi-person-lines-fill"></i> Your Details</h5>
+                <div class="error-msg" id="error-msg"></div>
+                <div class="success-box" id="success-box">
+                    <div class="icon"><i class="bi bi-check-circle-fill"></i></div>
+                    <h3>Booking Request Submitted!</h3>
+                    <p>Your meeting request has been sent. Our team will contact you shortly to confirm.</p>
+                    <button class="btn btn-book mt-3" style="max-width:200px;margin:16px auto 0;" onclick="resetForm()">Book Another</button>
+                </div>
+                <form id="booking-form">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Full Name *</label>
+                            <input type="text" class="form-control" id="bk-name" placeholder="John Doe" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone Number *</label>
+                            <input type="tel" class="form-control" id="bk-phone" placeholder="+91 98765 43210" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="bk-email" placeholder="john@company.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Company</label>
+                            <input type="text" class="form-control" id="bk-company" placeholder="Company name">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Preferred Date *</label>
+                            <input type="date" class="form-control" id="bk-date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Preferred Time *</label>
+                            <select class="form-select" id="bk-time" required>
+                                <option value="">Select a date first</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Duration</label>
+                            <select class="form-select" id="bk-duration">
+                                <option value="15">15 minutes</option>
+                                <option value="30" selected>30 minutes</option>
+                                <option value="45">45 minutes</option>
+                                <option value="60">60 minutes</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Purpose of Meeting *</label>
+                            <textarea class="form-control" id="bk-purpose" rows="3" placeholder="Briefly describe what you'd like to discuss..." required></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Additional Notes</label>
+                            <input type="text" class="form-control" id="bk-notes" placeholder="Any special requests or information">
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-book" id="submit-btn">
+                            <i class="bi bi-send-fill"></i> Submit Booking Request
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>&copy; 2026 <a href="#">Next360</a> — CEO Command Center. All rights reserved.</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    const API = '/api';
+    let selectedDate = '';
+    let selectedTime = '';
+    let availableSlots = [];
+
+    function formatDate(d) {
+        const dt = new Date(d);
+        return dt.toISOString().split('T')[0];
+    }
+
+    function buildDatePicker() {
+        const container = document.getElementById('date-picker');
+        container.innerHTML = '';
+        const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() + i);
+            if (d.getDay() === 0) continue;
+            const dateStr = formatDate(d);
+            const chip = document.createElement('div');
+            chip.className = 'date-chip' + (i === 0 ? ' active' : '');
+            chip.dataset.date = dateStr;
+            chip.innerHTML = `<div class="day">${d.getDate()}</div><div class="label">${days[d.getDay()]}</div>`;
+            chip.onclick = () => selectDate(dateStr, chip);
+            container.appendChild(chip);
+        }
+        const firstDate = container.querySelector('.date-chip')?.dataset.date;
+        if (firstDate) {
+            document.getElementById('bk-date').value = firstDate;
+            selectDate(firstDate, container.querySelector('.date-chip'));
+        }
+    }
+
+    async function selectDate(dateStr, el) {
+        document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('active'));
+        el.classList.add('active');
+        selectedDate = dateStr;
+        selectedTime = '';
+        document.getElementById('bk-date').value = dateStr;
+        const container = document.getElementById('slots-container');
+        container.innerHTML = '<p class="text-muted" style="font-size:13px;"><i class="bi bi-hourglass-split"></i> Loading slots...</p>';
+        try {
+            const res = await fetch(`${API}/public/availability?date=${dateStr}`);
+            const data = await res.json();
+            availableSlots = data.available || [];
+            renderSlots(availableSlots);
+        } catch(e) {
+            container.innerHTML = '<p class="text-danger" style="font-size:13px;">Failed to load slots</p>';
+        }
+    }
+
+    function renderSlots(slots) {
+        const container = document.getElementById('slots-container');
+        const timeSelect = document.getElementById('bk-time');
+        timeSelect.innerHTML = '<option value="">Select a time slot</option>';
+        if (!slots.length) {
+            container.innerHTML = '<p class="text-muted" style="font-size:13px;">No available slots for this date</p>';
+            return;
+        }
+        let html = '';
+        slots.forEach(slot => {
+            let cur = parseTime(slot.start_time);
+            const endMin = parseTime(slot.end_time);
+            while (cur < endMin) {
+                const timeStr = formatTime(cur);
+                const display = formatTime12(timeStr);
+                const isBooked = false;
+                html += `<span class="slot-badge slot-free" data-time="${timeStr}" onclick="selectSlot('${timeStr}',this)">${display}</span>`;
+                cur += 30;
+            }
+        });
+        container.innerHTML = html || '<p class="text-muted" style="font-size:13px;">No available slots</p>';
+    }
+
+    function parseTime(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
+    function formatTime(mins) { return `${String(Math.floor(mins/60)).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`; }
+    function formatTime12(t) { const [h,m] = t.split(':').map(Number); return `${h>12?h-12:h||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`; }
+
+    function selectSlot(time, el) {
+        document.querySelectorAll('.slot-badge').forEach(b => b.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedTime = time;
+        document.getElementById('bk-time').value = time;
+    }
+
+    document.getElementById('bk-date').addEventListener('change', function() {
+        const dateStr = this.value;
+        const chip = document.querySelector(`.date-chip[data-date="${dateStr}"]`);
+        if (chip) selectDate(dateStr, chip);
+    });
+
+    document.getElementById('booking-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('submit-btn');
+        const errBox = document.getElementById('error-msg');
+        const formEl = document.getElementById('booking-form');
+        errBox.style.display = 'none';
+        
+        const data = {
+            name: document.getElementById('bk-name').value.trim(),
+            phone: document.getElementById('bk-phone').value.trim(),
+            email: document.getElementById('bk-email').value.trim(),
+            company: document.getElementById('bk-company').value.trim(),
+            purpose: document.getElementById('bk-purpose').value.trim(),
+            date: document.getElementById('bk-date').value,
+            time: document.getElementById('bk-time').value,
+            duration: document.getElementById('bk-duration').value,
+            notes: document.getElementById('bk-notes').value.trim()
+        };
+
+        if (!data.name || !data.phone || !data.purpose || !data.date || !data.time) {
+            errBox.textContent = 'Please fill all required fields (name, phone, purpose, date, time).';
+            errBox.style.display = 'block';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Submitting...';
+
+        try {
+            const res = await fetch(`${API}/public/bookings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Failed to submit');
+            
+            formEl.style.display = 'none';
+            document.getElementById('success-box').style.display = 'block';
+            document.querySelector('.slots-section').style.display = 'none';
+        } catch(err) {
+            errBox.textContent = err.message;
+            errBox.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-send-fill"></i> Submit Booking Request';
+        }
+    });
+
+    function resetForm() {
+        document.getElementById('booking-form').reset();
+        document.getElementById('booking-form').style.display = 'block';
+        document.getElementById('success-box').style.display = 'none';
+        document.querySelector('.slots-section').style.display = 'block';
+        document.getElementById('error-msg').style.display = 'none';
+        buildDatePicker();
+    }
+
+    buildDatePicker();
+    </script>
+</body>
+</html>
