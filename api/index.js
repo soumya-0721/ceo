@@ -39,7 +39,7 @@ app.post('/api/auth/login', async (req, res) => {
         const token = jwt.sign({ id: user.id, username: user.username, role: user.role, fullName: user.full_name }, process.env.JWT_SECRET || 'next360-secret', { expiresIn: '24h' });
         res.cookie('token', token, { httpOnly: true, maxAge: 86400000, sameSite: 'lax' });
         res.json({ token, user: { id: user.id, username: user.username, fullName: user.full_name, email: user.email, role: user.role, avatar: user.avatar } });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+    } catch (e) { console.error('Login error:', e.message); res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/auth/logout', (_req, res) => { res.clearCookie('token'); res.json({ message: 'Logged out' }); });
@@ -112,7 +112,7 @@ app.post('/api/schedules', authenticateToken, async (req, res) => {
         if (!title || !date || !startTime || !endTime) return res.status(400).json({ error: 'Required fields missing' });
         const conflict = await pool.query(`SELECT id FROM schedules WHERE schedule_date=$1 AND status='active' AND ((start_time<$3 AND end_time>$2))`, [date, startTime, endTime]);
         if (conflict.rows.length > 0) return res.status(409).json({ error: 'Time conflict detected' });
-        const r = await pool.query(`INSERT INTO schedules (title,description,schedule_date,start_time,end_time,schedule_type,location,participants,priority,reminder_minutes,status,created_by,updated_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active',$11,$11) RETURNING *`, [title,description,date,startTime,endTime,scheduleType||'other',location,participants||[],priority||'medium',reminderMinutes||15,req.user.id]);
+        const r = await pool.query(`INSERT INTO schedules (user_id,title,description,schedule_date,start_time,end_time,schedule_type,location,participants,priority,reminder_minutes,status,created_by,updated_by) VALUES ($11,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active',$11,$11) RETURNING *`, [title,description,date,startTime,endTime,scheduleType||'other',location,participants||[],priority||'medium',reminderMinutes||15,req.user.id]);
         res.status(201).json(r.rows[0]);
     } catch { res.status(500).json({ error: 'Failed' }); }
 });

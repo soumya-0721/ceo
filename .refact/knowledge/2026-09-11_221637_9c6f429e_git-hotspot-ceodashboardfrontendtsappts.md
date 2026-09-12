@@ -6,7 +6,7 @@ tags:
 - git
 - hotspot
 created: 2026-09-11
-updated: 2026-09-11
+updated: 2026-09-12
 filenames:
 - ceo-dashboard/frontend/ts/app.ts
 links: []
@@ -14,7 +14,7 @@ kind: code
 status: proposed
 superseded_by: null
 deprecated_at: null
-review_after: 2026-09-11
+review_after: 2026-09-12
 source_chat_id: null
 created_at: 2026-09-11T16:46:37.784746800+00:00
 summary: null
