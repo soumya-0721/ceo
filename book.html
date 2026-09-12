@@ -234,7 +234,10 @@
             while (cur < endMin) {
                 const timeStr = formatTime(cur);
                 const display = formatTime12(timeStr);
-                const isBooked = false;
+                const opt = document.createElement('option');
+                opt.value = timeStr;
+                opt.textContent = display;
+                timeSelect.appendChild(opt);
                 html += `<span class="slot-badge slot-free" data-time="${timeStr}" onclick="selectSlot('${timeStr}',this)">${display}</span>`;
                 cur += 30;
             }
