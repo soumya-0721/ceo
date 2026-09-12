@@ -124,7 +124,7 @@ function buildSidebar() {
         </div>
         <div class="sidebar-footer">
             <div class="user-info">
-                <img src="${currentUser?.role === 'ceo' ? 'img/ceo-photo.svg' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+                <img src="${currentUser?.role === 'ceo' ? 'img/ceo.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
                 <div style="flex:1;">
                     <div class="user-name">${currentUser?.fullName || currentUser?.full_name || 'User'}</div>
                     <div class="user-role">${role}</div>
@@ -147,7 +147,7 @@ function buildSidebar() {
         </div>
         <div class="sidebar-footer">
             <div class="user-info">
-                <img src="${currentUser?.role === 'ceo' ? 'img/ceo-photo.svg' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+                <img src="${currentUser?.role === 'ceo' ? 'img/ceo.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
                 <div style="flex:1;">
                     <div class="user-name">${currentUser?.fullName || currentUser?.full_name}</div>
                     <div class="user-role">${role}</div>
@@ -282,7 +282,7 @@ async function renderDashboard() {
         wrapper.innerHTML = `
             <div class="content-header">
                 <div class="d-flex align-items-center gap-3">
-                    <img src="${currentUser?.role === 'ceo' ? 'img/ceo-photo.svg' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
+                    <img src="${currentUser?.role === 'ceo' ? 'img/ceo.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
                     <div>
                         <h4>${greeting}, ${currentUser?.fullName || currentUser?.full_name || 'User'}</h4>
                         <div class="subtitle">${formatDate(now)} &middot; ${timeStr}</div>

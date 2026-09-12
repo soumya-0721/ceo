@@ -202,11 +202,13 @@ app.patch('/api/bookings/:id/status', authenticateToken, async (req, res) => {
         const r = await pool.query(`UPDATE bookings SET status=$1, handled_by=$2, updated_at=NOW() WHERE id=$3 RETURNING *`, [status, req.user.id, req.params.id]);
         const booking = r.rows[0];
         if (booking && (status === 'accepted' || status === 'rejected')) {
+            const handler = await pool.query(`SELECT full_name FROM users WHERE id = $1`, [req.user.id]);
+            const handlerName = handler.rows[0]?.full_name || 'Admin';
             const coordUsers = await pool.query(`SELECT id FROM users WHERE role IN ('ceo','coordinator') AND id != $1`, [req.user.id]);
             for (const u of coordUsers.rows) {
                 await pool.query(
                     `INSERT INTO notifications (user_id,from_user_id,title,message,action_type,record_type,record_id) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-                    [u.id, req.user.id, `Booking ${status.charAt(0).toUpperCase()+status.slice(1)}`, `${booking.booked_by_name}'s meeting on ${booking.booking_date} at ${booking.preferred_time} has been ${status}.`, 'booking_updated', 'booking', booking.id]
+                    [u.id, req.user.id, `Booking ${status.charAt(0).toUpperCase()+status.slice(1)} by ${handlerName}`, `${handlerName} has ${status} ${booking.booked_by_name}'s meeting on ${booking.booking_date} at ${booking.preferred_time}.`, 'booking_updated', 'booking', booking.id]
                 );
             }
         }
