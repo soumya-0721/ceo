@@ -1174,4 +1174,133 @@ async function updateNotifBadge() {
   } catch {
   }
 }
+
+function openScheduleModal(schedule, defaultTime, defaultDate) {
+  const modal = new bootstrap.Modal(document.getElementById("scheduleModal"));
+  document.getElementById("scheduleModalTitle").textContent = schedule ? "Edit Schedule" : "Add Schedule";
+  document.getElementById("sch-id").value = schedule?.id || "";
+  document.getElementById("sch-title").value = schedule?.title || "";
+  document.getElementById("sch-description").value = schedule?.description || "";
+  document.getElementById("sch-date").value = schedule?.schedule_date || defaultDate || new Date().toISOString().split("T")[0];
+  document.getElementById("sch-start").value = schedule?.start_time?.substring(0,5) || defaultTime || "09:00";
+  document.getElementById("sch-end").value = schedule?.end_time?.substring(0,5) || "";
+  document.getElementById("sch-type").value = schedule?.schedule_type || "other";
+  document.getElementById("sch-location").value = schedule?.location || "";
+  document.getElementById("sch-participants").value = schedule?.participants?.join(", ") || "";
+  document.getElementById("sch-priority").value = schedule?.priority || "medium";
+  document.getElementById("sch-reminder").value = schedule?.reminder_minutes || "15";
+  document.getElementById("sch-status").value = schedule?.status || "active";
+  document.getElementById("conflict-alert").classList.add("d-none");
+  modal.show();
+}
+
+function openBookingModal() {
+  const modal = new bootstrap.Modal(document.getElementById("bookingModal"));
+  document.getElementById("bk-date").value = new Date().toISOString().split("T")[0];
+  modal.show();
+}
+
+function openReminderModal(reminder) {
+  const modal = new bootstrap.Modal(document.getElementById("reminderModal"));
+  document.getElementById("reminderModalTitle").textContent = reminder ? "Edit Reminder" : "Add Reminder";
+  document.getElementById("rem-id").value = reminder?.id || "";
+  document.getElementById("rem-title").value = reminder?.title || "";
+  document.getElementById("rem-description").value = reminder?.description || "";
+  document.getElementById("rem-date").value = reminder?.reminder_date || new Date().toISOString().split("T")[0];
+  document.getElementById("rem-time").value = reminder?.reminder_time?.substring(0,5) || "09:00";
+  document.getElementById("rem-repeat").value = reminder?.repeat_type || "once";
+  document.getElementById("rem-priority").value = reminder?.priority || "medium";
+  modal.show();
+}
+
+function openTaskModal(task) {
+  const modal = new bootstrap.Modal(document.getElementById("taskModal"));
+  document.getElementById("taskModalTitle").textContent = task ? "Edit Task" : "Add Task";
+  document.getElementById("tsk-id").value = task?.id || "";
+  document.getElementById("tsk-title").value = task?.title || "";
+  document.getElementById("tsk-description").value = task?.description || "";
+  document.getElementById("tsk-due").value = task?.due_date || "";
+  document.getElementById("tsk-priority").value = task?.priority || "medium";
+  modal.show();
+}
+
+function openFocusModal() {
+  const modal = new bootstrap.Modal(document.getElementById("focusModal"));
+  document.getElementById("foc-date").value = new Date().toISOString().split("T")[0];
+  modal.show();
+}
+
+function openFindTimeModal() {
+  const modal = new bootstrap.Modal(document.getElementById("findTimeModal"));
+  document.getElementById("ft-date").value = new Date().toISOString().split("T")[0];
+  document.getElementById("available-slots-list").innerHTML = "";
+  modal.show();
+}
+
+async function editSchedule(id) {
+  try {
+    const schedule = await api.get("/schedules/" + id);
+    openScheduleModal(schedule);
+  } catch {
+    showToast("Failed to load schedule", "danger");
+  }
+}
+
+async function editReminder(id) {
+  try {
+    const reminder = await api.get("/reminders/" + id);
+    openReminderModal(reminder);
+  } catch {
+    showToast("Failed to load reminder", "danger");
+  }
+}
+
+async function editTask(id) {
+  try {
+    const task = await api.get("/tasks/" + id);
+    openTaskModal(task);
+  } catch {
+    showToast("Failed to load task", "danger");
+  }
+}
+
+async function findAvailableSlots() {
+  const date = document.getElementById("ft-date").value;
+  const duration = parseInt(document.getElementById("ft-duration").value);
+  const el = document.getElementById("available-slots-list");
+  if (!date) { el.innerHTML = '<div class="alert alert-warning">Please select a date</div>'; return; }
+  try {
+    const slots = await api.getAvailableSlots(date, duration);
+    if (slots.length === 0) {
+      el.innerHTML = '<div class="alert alert-info">No available slots for this date</div>';
+      return;
+    }
+    el.innerHTML = slots.map(function(s) {
+      return '<div class="d-flex justify-content-between align-items-center p-2 rounded mb-1" style="background:rgba(62,142,104,0.06)">' +
+        '<span style="font-size:13px">' + formatTime12(s.start_time) + ' - ' + formatTime12(s.end_time) + '</span>' +
+        '<button class="btn btn-sm btn-outline-forest" onclick="document.getElementById(\'sch-date\').value=\''+date+'\';document.getElementById(\'sch-start\').value=\''+s.start_time+'\';document.getElementById(\'sch-end\').value=\''+s.end_time+'\';bootstrap.Modal.getInstance(document.getElementById(\'findTimeModal\'))?.hide();openScheduleModal(null,\''+s.start_time+'\',\''+date+'\')">' +
+        '<i class="bi bi-plus"></i> Book</button></div>';
+    }).join("");
+  } catch (err) {
+    el.innerHTML = '<div class="alert alert-danger">' + (err.error || "Failed to find slots") + '</div>';
+  }
+}
+
+async function markNotifRead(id, el) {
+  try {
+    await api.markNotifRead(id);
+    el.classList.remove("unread");
+  } catch {}
+}
+
+async function markAllRead() {
+  try {
+    await api.markAllNotifsRead();
+    document.querySelectorAll(".notification-item.unread").forEach(function(n) { n.classList.remove("unread"); });
+    showToast("All notifications marked as read");
+  } catch {}
+}
+
+async function markAllNotifsRead() { return markAllRead(); }
+
 // end
