@@ -83,16 +83,6 @@ router.post('/', async (req, res) => {
             return;
         }
         const targetUserId = req.query.userId || req.user.id;
-        const conflicts = await scheduleService_1.scheduleService.checkConflict(date, startTime, endTime);
-        if (conflicts.length > 0) {
-            const slots = await scheduleService_1.scheduleService.getAvailableSlots(date, 30);
-            res.status(409).json({
-                error: 'Time conflict detected',
-                conflicts,
-                suggestedSlots: slots
-            });
-            return;
-        }
         const schedule = await scheduleService_1.scheduleService.create({
             title, description, date, startTime, endTime,
             scheduleType: scheduleType || 'other', location,
@@ -117,14 +107,6 @@ router.put('/:id', async (req, res) => {
         if (!oldSchedule) {
             res.status(404).json({ error: 'Schedule not found' });
             return;
-        }
-        if (req.body.date && req.body.startTime && req.body.endTime) {
-            const conflicts = await scheduleService_1.scheduleService.checkConflict(req.body.date, req.body.startTime, req.body.endTime, req.params.id);
-            if (conflicts.length > 0) {
-                const slots = await scheduleService_1.scheduleService.getAvailableSlots(req.body.date, 30);
-                res.status(409).json({ error: 'Time conflict detected', conflicts, suggestedSlots: slots });
-                return;
-            }
         }
         const updated = await scheduleService_1.scheduleService.update(req.params.id, req.body, req.user.id);
         await auditService_1.auditService.log({

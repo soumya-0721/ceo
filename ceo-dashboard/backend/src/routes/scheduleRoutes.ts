@@ -82,17 +82,6 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
         const targetUserId = (req.query.userId as string) || req.user!.id;
 
-        const conflicts = await scheduleService.checkConflict(date, startTime, endTime);
-        if (conflicts.length > 0) {
-            const slots = await scheduleService.getAvailableSlots(date, 30);
-            res.status(409).json({
-                error: 'Time conflict detected',
-                conflicts,
-                suggestedSlots: slots
-            });
-            return;
-        }
-
         const schedule = await scheduleService.create({
             title, description, date, startTime, endTime,
             scheduleType: scheduleType || 'other', location,
@@ -122,17 +111,6 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     try {
         const oldSchedule = await scheduleService.getById(req.params.id);
         if (!oldSchedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
-
-        if (req.body.date && req.body.startTime && req.body.endTime) {
-            const conflicts = await scheduleService.checkConflict(
-                req.body.date, req.body.startTime, req.body.endTime, req.params.id
-            );
-            if (conflicts.length > 0) {
-                const slots = await scheduleService.getAvailableSlots(req.body.date, 30);
-                res.status(409).json({ error: 'Time conflict detected', conflicts, suggestedSlots: slots });
-                return;
-            }
-        }
 
         const updated = await scheduleService.update(req.params.id, req.body, req.user!.id);
 
