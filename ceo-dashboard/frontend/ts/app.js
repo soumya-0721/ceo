@@ -32,11 +32,8 @@ function showRoleSelection() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  if (api.getToken()) {
-    loadApp();
-  } else {
-    showLogin();
-  }
+  api.clearToken();
+  showLogin();
   initLoginForm();
 });
 function showLogin() {
