@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const bookingService_1 = require("../services/bookingService");
@@ -6,7 +9,83 @@ const scheduleService_1 = require("../services/scheduleService");
 const notificationService_1 = require("../services/notificationService");
 const auditService_1 = require("../services/auditService");
 const auth_1 = require("../middleware/auth");
+const database_1 = __importDefault(require("../config/database"));
 const router = (0, express_1.Router)();
+// Public: get available slots for a date (availability minus scheduled)
+router.get('/available-slots', async (req, res) => {
+    try {
+        const { date, duration } = req.query;
+        if (!date) {
+            res.status(400).json({ error: 'Date required' });
+            return;
+        }
+        const durationMin = parseInt(duration) || 30;
+        const dateObj = new Date(date);
+        const dayOfWeek = dateObj.getDay();
+        // 1) CEO availability for this day of week
+        const availResult = await database_1.default.query(`SELECT start_time, end_time FROM availability
+             WHERE day_of_week = $1 AND is_available = true ORDER BY start_time`, [dayOfWeek]);
+        if (availResult.rows.length === 0) {
+            res.json({ slots: [], message: 'No availability set for this day' });
+            return;
+        }
+        // 2) Scheduled meetings + focus sessions for this date
+        const blockedResult = await database_1.default.query(`SELECT start_time, end_time FROM schedules
+             WHERE schedule_date = $1 AND status = 'active'
+             UNION ALL
+             SELECT start_time, end_time FROM focus_sessions
+             WHERE focus_date = $1 AND status = 'active'
+             ORDER BY start_time`, [date]);
+        // 3) Existing bookings for this date
+        const bookingsResult = await database_1.default.query(`SELECT preferred_time, duration FROM bookings
+             WHERE booking_date = $1 AND status IN ('pending','accepted')`, [date]);
+        // Convert bookings to blocked time ranges
+        const bookingBlocks = bookingsResult.rows.map((b) => {
+            const [h, m] = b.preferred_time.split(':').map(Number);
+            const startMin = h * 60 + m;
+            const endMin = startMin + (b.duration || 30);
+            return {
+                start_time: `${Math.floor(startMin / 60).toString().padStart(2, '0')}:${(startMin % 60).toString().padStart(2, '0')}`,
+                end_time: `${Math.floor(endMin / 60).toString().padStart(2, '0')}:${(endMin % 60).toString().padStart(2, '0')}`
+            };
+        });
+        const allBlocked = [...blockedResult.rows, ...bookingBlocks]
+            .sort((a, b) => a.start_time.localeCompare(b.start_time));
+        // 4) Subtract blocked from available
+        const slots = [];
+        for (const avail of availResult.rows) {
+            let currentStart = avail.start_time;
+            for (const block of allBlocked) {
+                if (block.end_time <= currentStart)
+                    continue;
+                if (block.start_time > currentStart) {
+                    const diff = timeDiffMinutes(currentStart, block.start_time);
+                    if (diff >= durationMin) {
+                        slots.push({ start: currentStart, end: block.start_time, duration: diff });
+                    }
+                }
+                if (block.end_time > currentStart)
+                    currentStart = block.end_time;
+            }
+            if (currentStart < avail.end_time) {
+                const diff = timeDiffMinutes(currentStart, avail.end_time);
+                if (diff >= durationMin) {
+                    slots.push({ start: currentStart, end: avail.end_time, duration: diff });
+                }
+            }
+        }
+        res.json({ slots, date, dayOfWeek, duration: durationMin });
+    }
+    catch (error) {
+        console.error('Available slots error:', error);
+        res.status(500).json({ error: 'Failed to get available slots' });
+    }
+});
+function timeDiffMinutes(start, end) {
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    return (eh * 60 + em) - (sh * 60 + sm);
+}
 // Public booking route - no auth required
 router.post('/public', async (req, res) => {
     try {

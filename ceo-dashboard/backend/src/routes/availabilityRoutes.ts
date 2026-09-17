@@ -8,7 +8,8 @@ router.use(authenticateToken);
 
 router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const availability = await availabilityService.getByUser(req.user!.id);
+        const userId = (req.query.userId as string) || req.user!.id;
+        const availability = await availabilityService.getByUser(userId);
         res.json(availability);
     } catch (error) {
         res.status(500).json({ error: 'Failed to get availability' });
@@ -27,8 +28,9 @@ router.get('/today', async (_req: AuthRequest, res: Response) => {
 router.post('/', async (req: AuthRequest, res: Response) => {
     try {
         const { dayOfWeek, startTime, endTime, isAvailable, label } = req.body;
+        const userId = (req.query.userId as string) || req.user!.id;
         const result = await availabilityService.upsert(
-            req.user!.id, dayOfWeek, startTime, endTime, isAvailable !== false, label
+            userId, dayOfWeek, startTime, endTime, isAvailable !== false, label
         );
 
         await notificationService.notifyOtherUser(

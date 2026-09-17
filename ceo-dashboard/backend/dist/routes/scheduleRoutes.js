@@ -9,18 +9,19 @@ const router = (0, express_1.Router)();
 router.use(auth_1.authenticateToken);
 router.get('/', async (req, res) => {
     try {
-        const { date, startDate, endDate } = req.query;
+        const { date, startDate, endDate, userId } = req.query;
+        const targetUserId = userId || req.user.id;
         if (date) {
-            const schedules = await scheduleService_1.scheduleService.getByDate(date);
+            const schedules = await scheduleService_1.scheduleService.getByDate(date, targetUserId);
             res.json(schedules);
         }
         else if (startDate && endDate) {
-            const schedules = await scheduleService_1.scheduleService.getByDateRange(startDate, endDate);
+            const schedules = await scheduleService_1.scheduleService.getByDateRange(startDate, endDate, targetUserId);
             res.json(schedules);
         }
         else {
             const today = new Date().toISOString().split('T')[0];
-            const schedules = await scheduleService_1.scheduleService.getByDate(today);
+            const schedules = await scheduleService_1.scheduleService.getByDate(today, targetUserId);
             res.json(schedules);
         }
     }
@@ -81,6 +82,7 @@ router.post('/', async (req, res) => {
             res.status(400).json({ error: 'Title, date, start time and end time required' });
             return;
         }
+        const targetUserId = req.query.userId || req.user.id;
         const conflicts = await scheduleService_1.scheduleService.checkConflict(date, startTime, endTime);
         if (conflicts.length > 0) {
             const slots = await scheduleService_1.scheduleService.getAvailableSlots(date, 30);
@@ -95,7 +97,7 @@ router.post('/', async (req, res) => {
             title, description, date, startTime, endTime,
             scheduleType: scheduleType || 'other', location,
             participants: participants || [], priority: priority || 'medium',
-            reminderMinutes: reminderMinutes || 15, userId: req.user.id
+            reminderMinutes: reminderMinutes || 15, userId: targetUserId
         });
         await auditService_1.auditService.log({
             userId: req.user.id, action: 'created', recordType: 'schedule',

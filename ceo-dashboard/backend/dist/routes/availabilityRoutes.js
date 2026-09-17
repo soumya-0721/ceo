@@ -8,7 +8,8 @@ const router = (0, express_1.Router)();
 router.use(auth_1.authenticateToken);
 router.get('/', async (req, res) => {
     try {
-        const availability = await availabilityService_1.availabilityService.getByUser(req.user.id);
+        const userId = req.query.userId || req.user.id;
+        const availability = await availabilityService_1.availabilityService.getByUser(userId);
         res.json(availability);
     }
     catch (error) {
@@ -27,7 +28,8 @@ router.get('/today', async (_req, res) => {
 router.post('/', async (req, res) => {
     try {
         const { dayOfWeek, startTime, endTime, isAvailable, label } = req.body;
-        const result = await availabilityService_1.availabilityService.upsert(req.user.id, dayOfWeek, startTime, endTime, isAvailable !== false, label);
+        const userId = req.query.userId || req.user.id;
+        const result = await availabilityService_1.availabilityService.upsert(userId, dayOfWeek, startTime, endTime, isAvailable !== false, label);
         await notificationService_1.notificationService.notifyOtherUser(req.user.id, 'Availability Updated', `${req.user.fullName} updated availability for day ${dayOfWeek}`, 'updated', 'availability', result.id, null, result);
         res.json(result);
     }

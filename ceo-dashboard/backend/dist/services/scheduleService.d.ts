@@ -1,6 +1,6 @@
 export declare class ScheduleService {
-    getByDate(date: string): Promise<any[]>;
-    getByDateRange(startDate: string, endDate: string): Promise<any[]>;
+    getByDate(date: string, userId?: string): Promise<any[]>;
+    getByDateRange(startDate: string, endDate: string, userId?: string): Promise<any[]>;
     getById(id: string): Promise<any>;
     checkConflict(date: string, startTime: string, endTime: string, excludeId?: string): Promise<any[]>;
     getAvailableSlots(date: string, durationMinutes: number): Promise<any[]>;

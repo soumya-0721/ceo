@@ -163,6 +163,16 @@
             letter-spacing: 0.5px;
             margin-bottom: 1rem;
         }
+        
+        .slot-btn:hover {
+            border-color: var(--forest-green) !important;
+            background: rgba(23,63,53,0.04) !important;
+        }
+        
+        .slot-btn.selected {
+            border-color: var(--forest-green) !important;
+            background: rgba(23,63,53,0.08) !important;
+        }
     </style>
 </head>
 <body>
@@ -253,16 +263,6 @@
                                     <option value="Other">Other</option>
                                 </select>
                             </div>
-                            <div class="col-md-6">
-                                <label for="duration" class="form-label">Duration</label>
-                                <select class="form-select" id="duration" name="duration">
-                                    <option value="30">30 min</option>
-                                    <option value="15">15 min</option>
-                                    <option value="45">45 min</option>
-                                    <option value="60">60 min</option>
-                                    <option value="90">90 min</option>
-                                </select>
-                            </div>
                         </div>
                         
                         <div class="row mb-3">
@@ -271,8 +271,14 @@
                                 <input type="date" class="form-control" id="preferredDate" name="preferredDate" required>
                             </div>
                             <div class="col-md-4">
-                                <label for="preferredTime" class="form-label">Preferred Time <span class="text-danger">*</span></label>
-                                <input type="time" class="form-control" id="preferredTime" name="preferredTime" required>
+                                <label for="duration" class="form-label">Duration</label>
+                                <select class="form-select" id="duration" name="duration">
+                                    <option value="15">15 min</option>
+                                    <option value="30" selected>30 min</option>
+                                    <option value="45">45 min</option>
+                                    <option value="60">60 min</option>
+                                    <option value="90">90 min</option>
+                                </select>
                             </div>
                             <div class="col-md-4">
                                 <label for="frequency" class="form-label">Frequency</label>
@@ -289,6 +295,26 @@
                             <label for="notes" class="form-label">Additional Notes</label>
                             <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Any additional information or special requests..."></textarea>
                         </div>
+
+                        <div class="section-divider"></div>
+                        <div class="section-title"><i class="bi bi-clock-history me-1"></i>Available Time Slots</div>
+                        <div id="availableSlotsContainer">
+                            <div id="slotsLoading" class="text-center py-3">
+                                <div class="spinner-border text-success" role="status" style="width:1.5rem;height:1.5rem;"></div>
+                                <p class="mt-2 mb-0" style="font-size:13px;color:var(--text-secondary);">Loading available slots...</p>
+                            </div>
+                            <div id="slotsEmpty" class="text-center py-3 d-none">
+                                <i class="bi bi-calendar-x" style="font-size:32px;color:var(--gold);opacity:0.5;"></i>
+                                <p class="mt-2 mb-0" style="font-size:13px;color:var(--text-secondary);">Select a date to see available slots</p>
+                            </div>
+                            <div id="slotsList" class="d-flex flex-column gap-2"></div>
+                        </div>
+                        <div class="mt-2 mb-3" style="font-size:13px;">
+                            <span style="color:var(--text-secondary);">Selected: </span>
+                            <strong id="selectedTimeDisplay" style="color:var(--forest-green);">None selected</strong>
+                        </div>
+
+                        <input type="hidden" id="preferredTime" name="preferredTime">
                         
                         <div class="d-grid">
                             <button type="submit" class="btn btn-book" id="submitBtn">
@@ -314,28 +340,98 @@
             const submitBtn = document.getElementById('submitBtn');
             const alertContainer = document.getElementById('alertContainer');
             const formContent = document.getElementById('formContent');
+            const slotsContainer = document.getElementById('availableSlotsContainer');
+            const slotsLoading = document.getElementById('slotsLoading');
+            const slotsEmpty = document.getElementById('slotsEmpty');
+            const slotsList = document.getElementById('slotsList');
+            const selectedTimeEl = document.getElementById('selectedTimeDisplay');
             
-            // Set min date to today
+            let availableSlots = [];
+            let selectedTime = '';
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('preferredDate').min = today;
-            
-            // Auto-select 30 min duration
             document.getElementById('duration').value = '30';
+            
+            document.getElementById('duration').addEventListener('change', loadSlots);
+            document.getElementById('preferredDate').addEventListener('change', loadSlots);
+            
+            async function loadSlots() {
+                const date = document.getElementById('preferredDate').value;
+                const duration = document.getElementById('duration').value;
+                if (!date) return;
+                
+                slotsContainer.classList.remove('d-none');
+                slotsLoading.classList.remove('d-none');
+                slotsEmpty.classList.add('d-none');
+                slotsList.innerHTML = '';
+                selectedTime = '';
+                document.getElementById('preferredTime').value = '';
+                selectedTimeEl.textContent = 'None selected';
+                
+                try {
+                    const resp = await fetch('/api/bookings/available-slots?date=' + date + '&duration=' + duration);
+                    const data = await resp.json();
+                    availableSlots = data.slots || [];
+                    
+                    slotsLoading.classList.add('d-none');
+                    
+                    if (availableSlots.length === 0) {
+                        slotsEmpty.classList.remove('d-none');
+                        if (data.message) {
+                            slotsEmpty.innerHTML = '<i class="bi bi-calendar-x" style="font-size:32px;color:var(--gold);opacity:0.5;"></i><p class="mt-2 mb-0">' + data.message + '</p><small class="text-muted">Please try another date.</small>';
+                        }
+                    } else {
+                        slotsList.innerHTML = availableSlots.map(function(slot, i) {
+                            var s = slot.start.split(':');
+                            var e = slot.end.split(':');
+                            var sh = parseInt(s[0]), sm = parseInt(s[1]);
+                            var eh = parseInt(e[0]), em = parseInt(e[1]);
+                            var startH = sh > 12 ? sh - 12 : sh === 0 ? 12 : sh;
+                            var endH = eh > 12 ? eh - 12 : eh === 0 ? 12 : eh;
+                            var startP = sh >= 12 ? 'PM' : 'AM';
+                            var endP = eh >= 12 ? 'PM' : 'AM';
+                            var label = startH + ':' + String(sm).padStart(2,'0') + ' ' + startP + ' - ' + endH + ':' + String(em).padStart(2,'0') + ' ' + endP;
+                            var chunks = Math.floor(slot.duration / 30);
+                            return '<button type="button" class="btn slot-btn" data-index="' + i + '" data-time="' + slot.start + '" onclick="selectSlot(this,' + i + ')" style="border:2px solid #e0e0e0;border-radius:10px;padding:10px 14px;text-align:left;background:white;transition:all 0.2s;width:100%;">' +
+                                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                                '<span style="font-weight:600;font-size:14px;color:var(--forest);">' + label + '</span>' +
+                                '<span style="font-size:11px;color:var(--text-secondary);">' + slot.duration + ' min</span>' +
+                                '</div></button>';
+                        }).join('');
+                    }
+                } catch (err) {
+                    slotsLoading.classList.add('d-none');
+                    slotsEmpty.classList.remove('d-none');
+                    slotsEmpty.innerHTML = '<i class="bi bi-exclamation-triangle" style="font-size:32px;color:#dc3545;opacity:0.5;"></i><p class="mt-2 mb-0">Failed to load slots. Please try again.</p>';
+                }
+            }
+            
+            window.selectSlot = function(btn, index) {
+                document.querySelectorAll('.slot-btn').forEach(function(b) {
+                    b.style.borderColor = '#e0e0e0';
+                    b.style.background = 'white';
+                });
+                btn.style.borderColor = 'var(--forest-green)';
+                btn.style.background = 'rgba(23,63,53,0.06)';
+                selectedTime = availableSlots[index].start;
+                document.getElementById('preferredTime').value = selectedTime;
+                var s = selectedTime.split(':');
+                var sh = parseInt(s[0]), sm = parseInt(s[1]);
+                var h12 = sh > 12 ? sh - 12 : sh === 0 ? 12 : sh;
+                var p = sh >= 12 ? 'PM' : 'AM';
+                selectedTimeEl.textContent = h12 + ':' + String(sm).padStart(2,'0') + ' ' + p;
+            };
             
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                
-                if (!form.checkValidity()) {
-                    e.stopPropagation();
-                    form.classList.add('was-validated');
-                    return;
-                }
+                if (!form.checkValidity()) { e.stopPropagation(); form.classList.add('was-validated'); return; }
+                if (!selectedTime) { alert('Please select an available time slot.'); return; }
                 
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
                 
-                const formData = {
-                    fullName: document.getElementById('fullName').value.trim(),
+                var formData = {
+                    name: document.getElementById('fullName').value.trim(),
                     email: document.getElementById('email').value.trim(),
                     phone: document.getElementById('phone').value.trim(),
                     company: document.getElementById('company').value.trim(),
@@ -345,51 +441,39 @@
                     purpose: document.getElementById('purpose').value.trim(),
                     what: document.getElementById('meetingType').value,
                     date: document.getElementById('preferredDate').value,
-                    time: document.getElementById('preferredTime').value,
+                    time: selectedTime,
                     duration: document.getElementById('duration').value,
                     frequency: document.getElementById('frequency').value,
                     notes: document.getElementById('notes').value.trim()
                 };
                 
                 try {
-                    const response = await fetch('/api/bookings/public', {
+                    var response = await fetch('/api/bookings/public', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(formData)
                     });
-                    
-                    const result = await response.json();
+                    var result = await response.json();
                     
                     if (response.ok && result.success !== false) {
-                        alertContainer.innerHTML = `
-                            <div class="alert alert-success d-flex align-items-center" role="alert">
-                                <i class="bi bi-check-circle-fill me-2 fs-4"></i>
-                                <div>
-                                    <strong>Booking Request Submitted!</strong><br>
-                                    <small>Thank you for your request. We will review it and get back to you within 24-48 hours to confirm your meeting.</small>
-                                </div>
-                            </div>
-                        `;
+                        alertContainer.innerHTML = '<div class="alert alert-success d-flex align-items-center" role="alert">' +
+                            '<i class="bi bi-check-circle-fill me-2 fs-4"></i>' +
+                            '<div><strong>Booking Request Submitted!</strong><br>' +
+                            '<small>Thank you for your request. We will review it and get back to you within 24-48 hours to confirm your meeting.</small></div></div>';
                         formContent.innerHTML = '';
                     } else {
-                        throw new Error(result.message || 'Failed to submit booking request.');
+                        throw new Error(result.message || result.error || 'Failed to submit booking request.');
                     }
                 } catch (error) {
-                    alertContainer.innerHTML = `
-                        <div class="alert alert-danger d-flex align-items-center" role="alert">
-                            <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
-                            <div>
-                                <strong>Submission Failed!</strong><br>
-                                <small>${error.message || 'An error occurred. Please try again later.'}</small>
-                            </div>
-                        </div>
-                    `;
+                    alertContainer.innerHTML = '<div class="alert alert-danger d-flex align-items-center" role="alert">' +
+                        '<i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>' +
+                        '<div><strong>Submission Failed!</strong><br><small>' + (error.message || 'An error occurred. Please try again later.') + '</small></div></div>';
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = '<i class="bi bi-calendar-plus me-2"></i>Request Booking';
                 }
             });
+            
+            loadSlots();
         });
     </script>
 </body>

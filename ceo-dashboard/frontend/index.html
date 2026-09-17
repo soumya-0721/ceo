@@ -15,35 +15,68 @@
     <div id="login-screen" class="login-screen">
         <div class="login-container">
             <div class="login-brand">
-                <img src="img/Screenshot 2026-08-20 162312.png" alt="CEO Samhith" style="width:120px;height:120px;border-radius:50%;border:4px solid var(--forest);object-fit:cover;margin-bottom:16px;">
                 <div class="brand-logo-wrapper">
-                    <img src="img/Screenshot 2026-08-13 113539.png" alt="Next360 Logo" class="brand-logo-img" style="width:70px;height:70px;border-radius:50%;">
+                    <img src="img/Screenshot 2026-08-13 113539.png" alt="Next360 Logo" class="brand-logo-img" style="width:90px;height:90px;border-radius:50%;">
                 </div>
                 <h1>Next360</h1>
                 <p>CEO Command Center &middot; Organic Products</p>
             </div>
-            <form id="login-form" class="login-form">
-                <div class="mb-3">
-                    <label class="form-label" style="font-size:13px;font-weight:500;color:var(--text-secondary);">Username</label>
-                    <input type="text" class="form-control" id="login-username" placeholder="Enter your username" required style="height:48px;">
+
+            <!-- Step 1: Role Selection -->
+            <div id="role-selection">
+                <p style="color:var(--text-secondary);font-size:14px;text-align:center;margin-bottom:20px;">Select your role to continue</p>
+                <div class="d-flex gap-3 mb-4">
+                    <button type="button" class="btn flex-fill role-btn" onclick="selectRole('ceo')" style="border:2px solid var(--border);border-radius:12px;padding:20px 10px;background:white;cursor:pointer;transition:all 0.3s;">
+                        <img src="img/Screenshot 2026-08-20 162312.png" alt="CEO" style="width:56px;height:56px;border-radius:50%;object-fit:cover;margin-bottom:8px;border:2px solid var(--forest);">
+                        <div style="font-weight:600;font-size:14px;color:var(--forest);">CEO</div>
+                        <div style="font-size:11px;color:var(--text-secondary);">Samhith</div>
+                    </button>
+                    <button type="button" class="btn flex-fill role-btn" onclick="selectRole('coordinator')" style="border:2px solid var(--border);border-radius:12px;padding:20px 10px;background:white;cursor:pointer;transition:all 0.3s;">
+                        <div style="width:56px;height:56px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;border:2px solid var(--forest);">
+                            <i class="bi bi-person-gear" style="font-size:24px;color:white;"></i>
+                        </div>
+                        <div style="font-weight:600;font-size:14px;color:var(--forest);">Coordinator</div>
+                        <div style="font-size:11px;color:var(--text-secondary);">Soumya</div>
+                    </button>
                 </div>
-                <div class="mb-4">
-                    <label class="form-label" style="font-size:13px;font-weight:500;color:var(--text-secondary);">Password</label>
-                    <input type="password" class="form-control" id="login-password" placeholder="Enter your password" required style="height:48px;">
+                <div style="text-align:center;padding-top:16px;border-top:1px solid var(--border-light);">
+                    <a href="book.html" style="color:var(--gold);text-decoration:none;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;">
+                        <i class="bi bi-calendar-event"></i> Book a Meeting with CEO
+                    </a>
                 </div>
-                <div class="row g-2 mb-3">
-                    <div class="col-6">
-                        <button type="submit" class="btn btn-login w-100" id="login-btn" style="height:48px;">
-                            <span class="btn-text">Sign In</span>
-                            <span class="btn-spinner d-none"><span class="spinner-border spinner-border-sm"></span></span>
-                        </button>
+            </div>
+
+            <!-- Step 2: Login Form (hidden by default) -->
+            <div id="login-form-wrapper" class="d-none">
+                <div class="d-flex align-items-center mb-3" style="cursor:pointer;" onclick="showRoleSelection()">
+                    <i class="bi bi-arrow-left me-2" style="color:var(--forest);"></i>
+                    <span style="font-size:13px;font-weight:500;color:var(--forest);" id="login-role-label">Back to role selection</span>
+                </div>
+                <div class="text-center mb-3">
+                    <div id="login-role-avatar" style="width:48px;height:48px;border-radius:50%;margin:0 auto 8px;"></div>
+                    <div style="font-weight:600;font-size:16px;color:var(--forest);" id="login-role-name"></div>
+                </div>
+                <form id="login-form" class="login-form">
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size:13px;font-weight:500;color:var(--text-secondary);">Username</label>
+                        <input type="text" class="form-control" id="login-username" placeholder="Enter your username" required style="height:52px;border-radius:10px;">
                     </div>
-                    <div class="col-6">
-                        <a href="book.html" class="btn w-100" style="height:48px;background:var(--gold);color:var(--white);font-weight:600;border-radius:var(--radius-sm);text-decoration:none;display:flex;align-items:center;justify-content:center;">Book a Meeting</a>
+                    <div class="mb-4">
+                        <label class="form-label" style="font-size:13px;font-weight:500;color:var(--text-secondary);">Password</label>
+                        <input type="password" class="form-control" id="login-password" placeholder="Enter your password" required style="height:52px;border-radius:10px;">
                     </div>
+                    <button type="submit" class="btn btn-login w-100 mb-3" id="login-btn" style="height:52px;border-radius:10px;">
+                        <span class="btn-text">Sign In</span>
+                        <span class="btn-spinner d-none"><span class="spinner-border spinner-border-sm"></span></span>
+                    </button>
+                    <div id="login-error" class="alert alert-danger mb-3 d-none" style="border-radius:var(--radius-sm);font-size:13px;"></div>
+                </form>
+                <div style="text-align:center;padding-top:16px;border-top:1px solid var(--border-light);">
+                    <a href="book.html" style="color:var(--gold);text-decoration:none;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;">
+                        <i class="bi bi-calendar-event"></i> Book a Meeting with CEO
+                    </a>
                 </div>
-                <div id="login-error" class="alert alert-danger mt-3 d-none" style="border-radius:var(--radius-sm);font-size:13px;"></div>
-            </form>
+            </div>
         </div>
     </div>
 

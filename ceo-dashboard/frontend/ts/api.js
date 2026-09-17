@@ -49,8 +49,9 @@ class ApiService {
     logout() { return this.post('/auth/logout', {}); }
     getMe() { return this.get('/auth/me'); }
 
-    getSchedules(date, startDate, endDate) {
+    getSchedules(date, startDate, endDate, userId) {
         let q = '/schedules?';
+        if (userId) q += `userId=${userId}&`;
         if (date) q += `date=${date}`;
         else if (startDate && endDate) q += `startDate=${startDate}&endDate=${endDate}`;
         return this.get(q);
@@ -62,7 +63,10 @@ class ApiService {
         if (excludeId) q += `&excludeId=${excludeId}`;
         return this.get(q);
     }
-    createSchedule(data) { return this.post('/schedules', data); }
+    createSchedule(data, userId) { 
+        const url = userId ? `/schedules?userId=${userId}` : '/schedules';
+        return this.post(url, data); 
+    }
     updateSchedule(id, data) { return this.put(`/schedules/${id}`, data); }
     updateScheduleStatus(id, status) { return this.patch(`/schedules/${id}/status`, { status }); }
 
@@ -101,6 +105,19 @@ class ApiService {
 
     getAuditLogs(limit) { return this.get(`/audit${limit ? `?limit=${limit}` : ''}`); }
     getAuditByRecord(recordType, recordId) { return this.get(`/audit/${recordType}/${recordId}`); }
+
+    getCEOUser() { return this.get('/auth/ceo'); }
+
+    getSchedulesForUser(userId, date, startDate, endDate) {
+        let q = `/schedules?userId=${userId}`;
+        if (date) q += `&date=${date}`;
+        else if (startDate && endDate) q += `&startDate=${startDate}&endDate=${endDate}`;
+        return this.get(q);
+    }
+    getAvailabilityForUser(userId) { return this.get(`/availability?userId=${userId}`); }
+    upsertAvailabilityForUser(userId, data) { return this.post(`/availability?userId=${userId}`, data); }
+
+    getAvailableSlotsPublic(date, duration) { return fetch(`/api/bookings/available-slots?date=${date}&duration=${duration}`).then(r => r.json()); }
 
     createPublicBooking(data) {
         return fetch('/api/bookings/public', {

@@ -6,18 +6,30 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.scheduleService = exports.ScheduleService = void 0;
 const database_1 = __importDefault(require("../config/database"));
 class ScheduleService {
-    async getByDate(date) {
-        const result = await database_1.default.query(`SELECT s.*, u.full_name as creator_name FROM schedules s
-             LEFT JOIN users u ON s.created_by = u.id
-             WHERE s.schedule_date = $1 AND s.status NOT IN ('archived')
-             ORDER BY s.start_time`, [date]);
+    async getByDate(date, userId) {
+        let query = `SELECT s.*, u.full_name as creator_name FROM schedules s
+                     LEFT JOIN users u ON s.created_by = u.id
+                     WHERE s.schedule_date = $1 AND s.status NOT IN ('archived')`;
+        const params = [date];
+        if (userId) {
+            query += ' AND s.created_by = $2';
+            params.push(userId);
+        }
+        query += ' ORDER BY s.start_time';
+        const result = await database_1.default.query(query, params);
         return result.rows;
     }
-    async getByDateRange(startDate, endDate) {
-        const result = await database_1.default.query(`SELECT s.*, u.full_name as creator_name FROM schedules s
-             LEFT JOIN users u ON s.created_by = u.id
-             WHERE s.schedule_date BETWEEN $1 AND $2 AND s.status NOT IN ('archived')
-             ORDER BY s.schedule_date, s.start_time`, [startDate, endDate]);
+    async getByDateRange(startDate, endDate, userId) {
+        let query = `SELECT s.*, u.full_name as creator_name FROM schedules s
+                     LEFT JOIN users u ON s.created_by = u.id
+                     WHERE s.schedule_date BETWEEN $1 AND $2 AND s.status NOT IN ('archived')`;
+        const params = [startDate, endDate];
+        if (userId) {
+            query += ' AND s.created_by = $3';
+            params.push(userId);
+        }
+        query += ' ORDER BY s.schedule_date, s.start_time';
+        const result = await database_1.default.query(query, params);
         return result.rows;
     }
     async getById(id) {
@@ -73,9 +85,9 @@ class ScheduleService {
         return (eh * 60 + em) - (sh * 60 + sm);
     }
     async create(data) {
-        const result = await database_1.default.query(`INSERT INTO schedules (title, description, schedule_date, start_time, end_time,
+        const result = await database_1.default.query(`INSERT INTO schedules (user_id, title, description, schedule_date, start_time, end_time,
              schedule_type, location, participants, priority, reminder_minutes, status, created_by, updated_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active',$11,$11) RETURNING *`, [data.title, data.description, data.date, data.startTime, data.endTime,
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'active',$12,$12) RETURNING *`, [data.userId, data.title, data.description, data.date, data.startTime, data.endTime,
             data.scheduleType, data.location, data.participants, data.priority,
             data.reminderMinutes, data.userId]);
         return result.rows[0];

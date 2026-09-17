@@ -1,8 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const authService_1 = require("../services/authService");
 const auth_1 = require("../middleware/auth");
+const database_1 = __importDefault(require("../config/database"));
 const router = (0, express_1.Router)();
 router.post('/login', async (req, res) => {
     try {
@@ -43,6 +47,19 @@ router.get('/users', auth_1.authenticateToken, async (_req, res) => {
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to get users' });
+    }
+});
+router.get('/ceo', auth_1.authenticateToken, async (_req, res) => {
+    try {
+        const result = await database_1.default.query("SELECT id, username, full_name, role FROM users WHERE role = 'ceo' LIMIT 1");
+        if (result.rows.length === 0) {
+            res.status(404).json({ error: 'CEO not found' });
+            return;
+        }
+        res.json(result.rows[0]);
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Failed to get CEO user' });
     }
 });
 exports.default = router;

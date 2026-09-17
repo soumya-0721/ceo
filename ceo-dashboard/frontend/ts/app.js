@@ -2,6 +2,35 @@
 let currentUser = null;
 let currentPage = "dashboard";
 let currentPageDate = /* @__PURE__ */ new Date();
+let selectedRole = null;
+let ceoUserId = null;
+
+function selectRole(role) {
+  selectedRole = role;
+  document.getElementById("role-selection").classList.add("d-none");
+  document.getElementById("login-form-wrapper").classList.remove("d-none");
+  const label = document.getElementById("login-role-name");
+  const avatar = document.getElementById("login-role-avatar");
+  if (role === "ceo") {
+    label.textContent = "CEO - Samhith";
+    avatar.innerHTML = '<img src="img/Screenshot 2026-08-20 162312.png" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--forest);">';
+    document.getElementById("login-role-label").textContent = "Back to role selection";
+  } else {
+    label.textContent = "Coordinator - Soumya";
+    avatar.innerHTML = '<div style="width:48px;height:48px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;"><i class="bi bi-person-gear" style="font-size:22px;color:white;"></i></div>';
+    document.getElementById("login-role-label").textContent = "Back to role selection";
+  }
+}
+
+function showRoleSelection() {
+  selectedRole = null;
+  document.getElementById("role-selection").classList.remove("d-none");
+  document.getElementById("login-form-wrapper").classList.add("d-none");
+  document.getElementById("login-error").classList.add("d-none");
+  document.getElementById("login-username").value = "";
+  document.getElementById("login-password").value = "";
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (api.getToken()) {
     loadApp();
@@ -13,10 +42,16 @@ document.addEventListener("DOMContentLoaded", () => {
 function showLogin() {
   document.getElementById("login-screen").classList.remove("d-none");
   document.getElementById("app-screen").classList.add("d-none");
+  showRoleSelection();
 }
 function showApp() {
   document.getElementById("login-screen").classList.add("d-none");
   document.getElementById("app-screen").classList.remove("d-none");
+  if (currentUser && currentUser.role !== "ceo") {
+    api.getCEOUser().then(u => { ceoUserId = u.id; }).catch(() => {});
+  } else if (currentUser && currentUser.role === "ceo") {
+    ceoUserId = currentUser.id;
+  }
   buildSidebar();
   showPage("dashboard");
   startNotifPolling();
@@ -226,9 +261,10 @@ async function renderDashboard() {
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
   const greeting = now.getHours() < 12 ? "Good Morning" : now.getHours() < 17 ? "Good Afternoon" : "Good Evening";
   try {
+    const uid = (currentUser && currentUser.role !== "ceo") ? ceoUserId : currentUser.id;
     const [scheduleStats, schedules, tasks, pendingBookings, reminders, focusSessions] = await Promise.all([
       api.getScheduleStats().catch(() => ({ todayMeetings: 0, freeTimeFormatted: "0h 0m" })),
-      api.getSchedules(today).catch(() => []),
+      api.getSchedules(today, null, null, uid).catch(() => []),
       api.getTaskCounts().catch(() => ({ pending: 0, today: 0, completed: 0 })),
       api.getPendingBookingsCount().catch(() => ({ count: 0 })),
       api.getActiveReminders().catch(() => []),
@@ -554,8 +590,9 @@ async function renderSchedule() {
   const wrapper = document.getElementById("content-wrapper");
   const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
   try {
+    const uid = (currentUser && currentUser.role !== "ceo") ? ceoUserId : currentUser.id;
     const [schedules, focusSessions] = await Promise.all([
-      api.getSchedules(today),
+      api.getSchedules(today, null, null, uid),
       api.getFocusSessions(today)
     ]);
     const hours = Array.from({ length: 12 }, (_, i) => i + 8);
@@ -616,7 +653,8 @@ async function renderCalendar() {
   const startDate = `${year}-${(month + 1).toString().padStart(2, "0")}-01`;
   const endDate = `${year}-${(month + 1).toString().padStart(2, "0")}-${daysInMonth.toString().padStart(2, "0")}`;
   try {
-    const schedules = await api.getSchedules(void 0, startDate, endDate);
+    const uid = (currentUser && currentUser.role !== "ceo") ? ceoUserId : currentUser.id;
+    const schedules = await api.getSchedules(void 0, startDate, endDate, uid);
     const monthName = currentPageDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     let daysHtml = "";
@@ -663,7 +701,8 @@ async function renderCalendar() {
 async function renderAvailability() {
   const wrapper = document.getElementById("content-wrapper");
   try {
-    const availability = await api.getAvailability();
+    const uid = (currentUser && currentUser.role !== "ceo") ? ceoUserId : currentUser.id;
+    const availability = await uid ? api.getAvailabilityForUser(uid) : api.getAvailability();
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     wrapper.innerHTML = `
           <div class="content-header">
@@ -695,6 +734,25 @@ async function renderAvailability() {
       `;
   } catch (err) {
     wrapper.innerHTML = '<div class="alert alert-danger">Failed to load availability</div>';
+  }
+}
+async function addAvailability() {
+  const day = prompt("Day of week (0=Sun, 1=Mon, ..., 6=Sat):");
+  if (day === null) return;
+  const start = prompt("Start time (HH:MM):");
+  const end = prompt("End time (HH:MM):");
+  if (!start || !end) return;
+  try {
+    const uid = (currentUser && currentUser.role !== "ceo") ? ceoUserId : null;
+    if (uid) {
+      await api.upsertAvailabilityForUser(uid, { dayOfWeek: parseInt(day), startTime: start, endTime: end, isAvailable: true });
+    } else {
+      await api.upsertAvailability({ dayOfWeek: parseInt(day), startTime: start, endTime: end, isAvailable: true });
+    }
+    showToast("Availability updated");
+    renderAvailability();
+  } catch (err) {
+    showToast(err.error || "Failed", "danger");
   }
 }
 async function renderBookings() {
@@ -978,7 +1036,8 @@ document.getElementById("save-schedule-btn")?.addEventListener("click", async ()
       await api.updateSchedule(id, data);
       showToast("Schedule updated");
     } else {
-      await api.createSchedule(data);
+      const uid = (currentUser && currentUser.role !== "ceo") ? ceoUserId : null;
+      await api.createSchedule(data, uid);
       showToast("Schedule created");
     }
     bootstrap.Modal.getInstance(document.getElementById("scheduleModal"))?.hide();
