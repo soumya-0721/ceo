@@ -41,11 +41,11 @@ function showLogin() {
   document.getElementById("app-screen").classList.add("d-none");
   showRoleSelection();
 }
-function showApp() {
+async function showApp() {
   document.getElementById("login-screen").classList.add("d-none");
   document.getElementById("app-screen").classList.remove("d-none");
   if (currentUser && currentUser.role !== "ceo") {
-    api.getCEOUser().then(u => { ceoUserId = u.id; }).catch(() => {});
+    try { const u = await api.getCEOUser(); ceoUserId = u.id; } catch(e) { console.error("Failed to load CEO user:", e); }
   } else if (currentUser && currentUser.role === "ceo") {
     ceoUserId = currentUser.id;
   }
@@ -699,7 +699,13 @@ async function renderAvailability() {
   const wrapper = document.getElementById("content-wrapper");
   try {
     const uid = (currentUser && currentUser.role !== "ceo") ? ceoUserId : currentUser.id;
-    const availability = await uid ? api.getAvailabilityForUser(uid) : api.getAvailability();
+    let availability = [];
+    if (uid) {
+      availability = await api.getAvailabilityForUser(uid);
+    } else {
+      availability = await api.getAvailability();
+    }
+    if (!Array.isArray(availability)) availability = [];
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     wrapper.innerHTML = `
           <div class="content-header">
@@ -1176,7 +1182,9 @@ async function updateNotifBadge() {
 }
 
 function openScheduleModal(schedule, defaultTime, defaultDate) {
-  const modal = new bootstrap.Modal(document.getElementById("scheduleModal"));
+  const el = document.getElementById("scheduleModal");
+  let modal = bootstrap.Modal.getInstance(el);
+  if (!modal) modal = new bootstrap.Modal(el);
   document.getElementById("scheduleModalTitle").textContent = schedule ? "Edit Schedule" : "Add Schedule";
   document.getElementById("sch-id").value = schedule?.id || "";
   document.getElementById("sch-title").value = schedule?.title || "";
@@ -1195,13 +1203,17 @@ function openScheduleModal(schedule, defaultTime, defaultDate) {
 }
 
 function openBookingModal() {
-  const modal = new bootstrap.Modal(document.getElementById("bookingModal"));
+  const el = document.getElementById("bookingModal");
+  let modal = bootstrap.Modal.getInstance(el);
+  if (!modal) modal = new bootstrap.Modal(el);
   document.getElementById("bk-date").value = new Date().toISOString().split("T")[0];
   modal.show();
 }
 
 function openReminderModal(reminder) {
-  const modal = new bootstrap.Modal(document.getElementById("reminderModal"));
+  const el = document.getElementById("reminderModal");
+  let modal = bootstrap.Modal.getInstance(el);
+  if (!modal) modal = new bootstrap.Modal(el);
   document.getElementById("reminderModalTitle").textContent = reminder ? "Edit Reminder" : "Add Reminder";
   document.getElementById("rem-id").value = reminder?.id || "";
   document.getElementById("rem-title").value = reminder?.title || "";
@@ -1214,7 +1226,9 @@ function openReminderModal(reminder) {
 }
 
 function openTaskModal(task) {
-  const modal = new bootstrap.Modal(document.getElementById("taskModal"));
+  const el = document.getElementById("taskModal");
+  let modal = bootstrap.Modal.getInstance(el);
+  if (!modal) modal = new bootstrap.Modal(el);
   document.getElementById("taskModalTitle").textContent = task ? "Edit Task" : "Add Task";
   document.getElementById("tsk-id").value = task?.id || "";
   document.getElementById("tsk-title").value = task?.title || "";
@@ -1225,13 +1239,17 @@ function openTaskModal(task) {
 }
 
 function openFocusModal() {
-  const modal = new bootstrap.Modal(document.getElementById("focusModal"));
+  const el = document.getElementById("focusModal");
+  let modal = bootstrap.Modal.getInstance(el);
+  if (!modal) modal = new bootstrap.Modal(el);
   document.getElementById("foc-date").value = new Date().toISOString().split("T")[0];
   modal.show();
 }
 
 function openFindTimeModal() {
-  const modal = new bootstrap.Modal(document.getElementById("findTimeModal"));
+  const el = document.getElementById("findTimeModal");
+  let modal = bootstrap.Modal.getInstance(el);
+  if (!modal) modal = new bootstrap.Modal(el);
   document.getElementById("ft-date").value = new Date().toISOString().split("T")[0];
   document.getElementById("available-slots-list").innerHTML = "";
   modal.show();
