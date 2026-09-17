@@ -1,1121 +1,1121 @@
-(() => {
-  let currentUser = null;
-  let currentPage = "dashboard";
-  let currentPageDate = /* @__PURE__ */ new Date();
-  document.addEventListener("DOMContentLoaded", () => {
-    if (api.getToken()) {
-      loadApp();
-    } else {
-      showLogin();
-    }
-    initLoginForm();
-  });
-  function showLogin() {
-    document.getElementById("login-screen").classList.remove("d-none");
-    document.getElementById("app-screen").classList.add("d-none");
+﻿// CEO Dashboard - Unwrapped
+let currentUser = null;
+let currentPage = "dashboard";
+let currentPageDate = /* @__PURE__ */ new Date();
+document.addEventListener("DOMContentLoaded", () => {
+  if (api.getToken()) {
+    loadApp();
+  } else {
+    showLogin();
   }
-  function showApp() {
-    document.getElementById("login-screen").classList.add("d-none");
-    document.getElementById("app-screen").classList.remove("d-none");
-    buildSidebar();
-    showPage("dashboard");
-    startNotifPolling();
-    showWelcomeGreeting();
-  }
-  function showWelcomeGreeting() {
-    const now = /* @__PURE__ */ new Date();
-    const hour = now.getHours();
-    let greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
-    const name = currentUser?.fullName || currentUser?.full_name || "User";
-    const toastEl = document.createElement("div");
-    toastEl.className = "toast toast-premium align-items-center border-0";
-    toastEl.setAttribute("role", "alert");
-    toastEl.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body d-flex align-items-center gap-2">
-                <i class="bi bi-hand-wave" style="color:var(--gold);font-size:18px"></i>
-                <span><strong>${greeting}, ${name}!</strong></span>
-            </div>
-            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    `;
-    document.getElementById("toast-container").appendChild(toastEl);
-    const toast = new window.bootstrap.Toast(toastEl, { delay: 5e3 });
-    toast.show();
-  }
-  function initLoginForm() {
-    document.getElementById("login-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const username = document.getElementById("login-username").value;
-      const password = document.getElementById("login-password").value;
-      const btn = document.getElementById("login-btn");
-      const errEl = document.getElementById("login-error");
-      btn.querySelector(".btn-text").classList.add("d-none");
-      btn.querySelector(".btn-spinner").classList.remove("d-none");
-      errEl.classList.add("d-none");
-      try {
-        const result = await api.login(username, password);
-        api.setToken(result.token);
-        localStorage.setItem("user", JSON.stringify(result.user));
-        currentUser = result.user;
-        showApp();
-      } catch (err) {
-        errEl.textContent = err.error || "Login failed";
-        errEl.classList.remove("d-none");
-      } finally {
-        btn.querySelector(".btn-text").classList.remove("d-none");
-        btn.querySelector(".btn-spinner").classList.add("d-none");
-      }
-    });
-  }
-  async function loadApp() {
+  initLoginForm();
+});
+function showLogin() {
+  document.getElementById("login-screen").classList.remove("d-none");
+  document.getElementById("app-screen").classList.add("d-none");
+}
+function showApp() {
+  document.getElementById("login-screen").classList.add("d-none");
+  document.getElementById("app-screen").classList.remove("d-none");
+  buildSidebar();
+  showPage("dashboard");
+  startNotifPolling();
+  showWelcomeGreeting();
+}
+function showWelcomeGreeting() {
+  const now = /* @__PURE__ */ new Date();
+  const hour = now.getHours();
+  let greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+  const name = currentUser?.fullName || currentUser?.full_name || "User";
+  const toastEl = document.createElement("div");
+  toastEl.className = "toast toast-premium align-items-center border-0";
+  toastEl.setAttribute("role", "alert");
+  toastEl.innerHTML = `
+      <div class="d-flex">
+          <div class="toast-body d-flex align-items-center gap-2">
+              <i class="bi bi-hand-wave" style="color:var(--gold);font-size:18px"></i>
+              <span><strong>${greeting}, ${name}!</strong></span>
+          </div>
+          <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+  `;
+  document.getElementById("toast-container").appendChild(toastEl);
+  const toast = new window.bootstrap.Toast(toastEl, { delay: 5e3 });
+  toast.show();
+}
+function initLoginForm() {
+  document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const username = document.getElementById("login-username").value;
+    const password = document.getElementById("login-password").value;
+    const btn = document.getElementById("login-btn");
+    const errEl = document.getElementById("login-error");
+    btn.querySelector(".btn-text").classList.add("d-none");
+    btn.querySelector(".btn-spinner").classList.remove("d-none");
+    errEl.classList.add("d-none");
     try {
-      currentUser = await api.getMe();
-      localStorage.setItem("user", JSON.stringify(currentUser));
+      const result = await api.login(username, password);
+      api.setToken(result.token);
+      localStorage.setItem("user", JSON.stringify(result.user));
+      currentUser = result.user;
       showApp();
-    } catch {
-      api.clearToken();
-      showLogin();
+    } catch (err) {
+      errEl.textContent = err.error || "Login failed";
+      errEl.classList.remove("d-none");
+    } finally {
+      btn.querySelector(".btn-text").classList.remove("d-none");
+      btn.querySelector(".btn-spinner").classList.add("d-none");
     }
+  });
+}
+async function loadApp() {
+  try {
+    currentUser = await api.getMe();
+    localStorage.setItem("user", JSON.stringify(currentUser));
+    showApp();
+  } catch {
+    api.clearToken();
+    showLogin();
   }
-  function buildSidebar() {
-    const initial = currentUser?.fullName?.[0] || currentUser?.full_name?.[0] || "U";
-    const role = currentUser?.role === "ceo" ? "CEO" : "Coordinator";
-    const menuItems = [
-      { id: "dashboard", icon: "bi-grid-1x2", label: "Dashboard" },
-      { id: "calendar", icon: "bi-calendar3", label: "Calendar" },
-      { id: "schedule", icon: "bi-clock-history", label: "Today's Schedule" },
-      { id: "availability", icon: "bi-toggle2-on", label: "Availability" },
-      { id: "bookings", icon: "bi-calendar-check", label: "Bookings" },
-      { id: "reminders", icon: "bi-bell", label: "Reminders" },
-      { id: "tasks", icon: "bi-list-task", label: "Tasks" },
-      { id: "notifications", icon: "bi-inbox", label: "Notifications" },
-      { id: "excel", icon: "bi-file-earmark-excel", label: "Excel Data" },
-      { id: "settings", icon: "bi-gear", label: "Settings" }
-    ];
-    const html = `
-        <div class="sidebar-brand">
-            <img src="img/Screenshot 2026-08-13 113539.png" alt="Next360" style="width:38px;height:38px;border-radius:10px;">
-            <span>Next360</span>
-        </div>
-        <div class="sidebar-nav">
-            ${menuItems.map((m) => `
-                <div class="nav-item" data-page="${m.id}" onclick="showPage('${m.id}')">
-                    <i class="bi ${m.icon}"></i>
-                    <span>${m.label}</span>
-                    ${m.id === "notifications" ? '<span class="badge rounded-pill d-none" id="notif-badge" style="background:var(--danger);color:white;font-size:10px;margin-left:auto;">0</span>' : ""}
-                    ${m.id === "bookings" ? '<span class="badge rounded-pill d-none" id="booking-badge" style="background:var(--warning);color:white;font-size:10px;margin-left:auto;">0</span>' : ""}
-                </div>
-            `).join("")}
-        </div>
-        <div class="sidebar-footer">
-            <div class="user-info">
-                <img src="${currentUser?.role === "ceo" ? "img/Screenshot 2026-08-20 162312.png" : "img/soumya-photo.svg"}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
-                <div style="flex:1;">
-                    <div class="user-name">${currentUser?.fullName || currentUser?.full_name || "User"}</div>
-                    <div class="user-role">${role}</div>
-                </div>
-                <button class="btn btn-link p-0" onclick="handleLogout()" title="Logout" style="color:var(--text-muted);">
-                    <i class="bi bi-box-arrow-right"></i>
-                </button>
-            </div>
-        </div>
-    `;
-    document.getElementById("desktop-sidebar").innerHTML = html;
-    document.getElementById("mobile-sidebar-content").innerHTML = `
-        <div class="sidebar-nav">
-            ${menuItems.map((m) => `
-                <div class="nav-item" data-page="${m.id}" onclick="showPage('${m.id}'); bootstrap.Offcanvas.getInstance(document.getElementById('sidebar-offcanvas'))?.hide();">
-                    <i class="bi ${m.icon}"></i><span>${m.label}</span>
-                </div>
-            `).join("")}
-        </div>
-        <div class="sidebar-footer">
-            <div class="user-info">
-                <img src="${currentUser?.role === "ceo" ? "img/Screenshot 2026-08-20 162312.png" : "img/soumya-photo.svg"}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
-                <div style="flex:1;">
-                    <div class="user-name">${currentUser?.fullName || currentUser?.full_name}</div>
-                    <div class="user-role">${role}</div>
-                </div>
-            </div>
-        </div>
-    `;
+}
+function buildSidebar() {
+  const initial = currentUser?.fullName?.[0] || currentUser?.full_name?.[0] || "U";
+  const role = currentUser?.role === "ceo" ? "CEO" : "Coordinator";
+  const menuItems = [
+    { id: "dashboard", icon: "bi-grid-1x2", label: "Dashboard" },
+    { id: "calendar", icon: "bi-calendar3", label: "Calendar" },
+    { id: "schedule", icon: "bi-clock-history", label: "Today's Schedule" },
+    { id: "availability", icon: "bi-toggle2-on", label: "Availability" },
+    { id: "bookings", icon: "bi-calendar-check", label: "Bookings" },
+    { id: "reminders", icon: "bi-bell", label: "Reminders" },
+    { id: "tasks", icon: "bi-list-task", label: "Tasks" },
+    { id: "notifications", icon: "bi-inbox", label: "Notifications" },
+    { id: "excel", icon: "bi-file-earmark-excel", label: "Excel Data" },
+    { id: "settings", icon: "bi-gear", label: "Settings" }
+  ];
+  const html = `
+      <div class="sidebar-brand">
+          <img src="img/Screenshot 2026-08-13 113539.png" alt="Next360" style="width:38px;height:38px;border-radius:10px;">
+          <span>Next360</span>
+      </div>
+      <div class="sidebar-nav">
+          ${menuItems.map((m) => `
+              <div class="nav-item" data-page="${m.id}" onclick="showPage('${m.id}')">
+                  <i class="bi ${m.icon}"></i>
+                  <span>${m.label}</span>
+                  ${m.id === "notifications" ? '<span class="badge rounded-pill d-none" id="notif-badge" style="background:var(--danger);color:white;font-size:10px;margin-left:auto;">0</span>' : ""}
+                  ${m.id === "bookings" ? '<span class="badge rounded-pill d-none" id="booking-badge" style="background:var(--warning);color:white;font-size:10px;margin-left:auto;">0</span>' : ""}
+              </div>
+          `).join("")}
+      </div>
+      <div class="sidebar-footer">
+          <div class="user-info">
+              <img src="${currentUser?.role === "ceo" ? "img/Screenshot 2026-08-20 162312.png" : "img/soumya-photo.svg"}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+              <div style="flex:1;">
+                  <div class="user-name">${currentUser?.fullName || currentUser?.full_name || "User"}</div>
+                  <div class="user-role">${role}</div>
+              </div>
+              <button class="btn btn-link p-0" onclick="handleLogout()" title="Logout" style="color:var(--text-muted);">
+                  <i class="bi bi-box-arrow-right"></i>
+              </button>
+          </div>
+      </div>
+  `;
+  document.getElementById("desktop-sidebar").innerHTML = html;
+  document.getElementById("mobile-sidebar-content").innerHTML = `
+      <div class="sidebar-nav">
+          ${menuItems.map((m) => `
+              <div class="nav-item" data-page="${m.id}" onclick="showPage('${m.id}'); bootstrap.Offcanvas.getInstance(document.getElementById('sidebar-offcanvas'))?.hide();">
+                  <i class="bi ${m.icon}"></i><span>${m.label}</span>
+              </div>
+          `).join("")}
+      </div>
+      <div class="sidebar-footer">
+          <div class="user-info">
+              <img src="${currentUser?.role === "ceo" ? "img/Screenshot 2026-08-20 162312.png" : "img/soumya-photo.svg"}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+              <div style="flex:1;">
+                  <div class="user-name">${currentUser?.fullName || currentUser?.full_name}</div>
+                  <div class="user-role">${role}</div>
+              </div>
+          </div>
+      </div>
+  `;
+}
+function showPage(page) {
+  currentPage = page;
+  document.querySelectorAll(".nav-item").forEach((el) => {
+    el.classList.toggle("active", el.dataset.page === page);
+  });
+  const wrapper = document.getElementById("content-wrapper");
+  wrapper.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-forest"></div></div>';
+  switch (page) {
+    case "dashboard":
+      renderDashboard();
+      break;
+    case "calendar":
+      renderCalendar();
+      break;
+    case "schedule":
+      renderSchedule();
+      break;
+    case "availability":
+      renderAvailability();
+      break;
+    case "bookings":
+      renderBookings();
+      break;
+    case "reminders":
+      renderReminders();
+      break;
+    case "tasks":
+      renderTasks();
+      break;
+    case "notifications":
+      renderNotifications();
+      break;
+    case "excel":
+      renderExcel();
+      break;
+    case "settings":
+      renderSettings();
+      break;
+    default:
+      renderDashboard();
   }
-  function showPage(page) {
-    currentPage = page;
-    document.querySelectorAll(".nav-item").forEach((el) => {
-      el.classList.toggle("active", el.dataset.page === page);
+}
+function formatDate(d) {
+  return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+}
+function formatTime12(time) {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hr = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  return `${hr}:${m.toString().padStart(2, "0")} ${period}`;
+}
+function timeNow() {
+  const d = /* @__PURE__ */ new Date();
+  return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
+}
+function showToast(message, type = "success") {
+  const icons = { success: "check-circle-fill", warning: "exclamation-triangle-fill", danger: "x-circle-fill", info: "info-circle-fill" };
+  const colors = { success: "var(--success)", warning: "var(--warning)", danger: "var(--danger)", info: "var(--info)" };
+  const toastEl = document.createElement("div");
+  toastEl.className = "toast toast-premium align-items-center border-0";
+  toastEl.setAttribute("role", "alert");
+  toastEl.innerHTML = `
+      <div class="d-flex">
+          <div class="toast-body d-flex align-items-center gap-2">
+              <i class="bi ${icons[type] || icons.info}" style="color:${colors[type] || colors.info}"></i>
+              <span>${message}</span>
+          </div>
+          <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+  `;
+  document.getElementById("toast-container").appendChild(toastEl);
+  const toast = new window.bootstrap.Toast(toastEl, { delay: 4e3 });
+  toast.show();
+}
+function showEmptyState(icon, message) {
+  return `<div class="empty-state"><i class="bi ${icon}"></i><p>${message}</p></div>`;
+}
+async function renderDashboard() {
+  const wrapper = document.getElementById("content-wrapper");
+  const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  const now = /* @__PURE__ */ new Date();
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const greeting = now.getHours() < 12 ? "Good Morning" : now.getHours() < 17 ? "Good Afternoon" : "Good Evening";
+  try {
+    const [scheduleStats, schedules, tasks, pendingBookings, reminders, focusSessions] = await Promise.all([
+      api.getScheduleStats().catch(() => ({ todayMeetings: 0, freeTimeFormatted: "0h 0m" })),
+      api.getSchedules(today).catch(() => []),
+      api.getTaskCounts().catch(() => ({ pending: 0, today: 0, completed: 0 })),
+      api.getPendingBookingsCount().catch(() => ({ count: 0 })),
+      api.getActiveReminders().catch(() => []),
+      api.getFocusSessions(today).catch(() => [])
+    ]);
+    const nowTime = timeStr.replace(/ AM| PM/, "").trim();
+    const isFocus = focusSessions.some((f) => nowTime >= f.start_time.substring(0, 5) && nowTime <= f.end_time.substring(0, 5));
+    const currentMeeting = schedules.find((s) => nowTime >= s.start_time.substring(0, 5) && nowTime <= s.end_time.substring(0, 5) && s.schedule_type !== "personal");
+    const nextMeeting = schedules.find((s) => s.start_time.substring(0, 5) > nowTime && s.status === "active");
+    let statusHtml = '<span class="status-indicator status-available"><span class="status-dot"></span>Available</span>';
+    if (isFocus) statusHtml = '<span class="status-indicator status-focus-mode"><span class="status-dot"></span>Focus Mode</span>';
+    else if (currentMeeting) statusHtml = '<span class="status-indicator status-meeting"><span class="status-dot"></span>In Meeting</span>';
+    let nextMeetingHtml = '<div class="text-center text-muted py-4"><i class="bi bi-calendar-check" style="font-size:32px;opacity:0.2"></i><p class="mt-2 mb-0">No upcoming meetings</p></div>';
+    if (nextMeeting) {
+      const [nh, nm] = nextMeeting.start_time.split(":").map(Number);
+      const targetTime = /* @__PURE__ */ new Date();
+      targetTime.setHours(nh, nm, 0, 0);
+      const diffMs = targetTime.getTime() - now.getTime();
+      const diffMin = Math.max(0, Math.floor(diffMs / 6e4));
+      const countdownText = diffMin <= 0 ? "Starting now" : `Starts in ${diffMin} minutes`;
+      nextMeetingHtml = `
+              <div class="next-time-display">${formatTime12(nextMeeting.start_time)}</div>
+              <div class="next-meeting-title">${nextMeeting.title}</div>
+              ${nextMeeting.location ? `<div class="next-meta"><i class="bi bi-geo-alt me-1"></i>${nextMeeting.location}</div>` : ""}
+              ${nextMeeting.participants?.length ? `<div class="next-meta"><i class="bi bi-people me-1"></i>${nextMeeting.participants.join(", ")}</div>` : ""}
+              <div class="next-meta"><i class="bi bi-clock me-1"></i>${formatTime12(nextMeeting.start_time)} - ${formatTime12(nextMeeting.end_time)}</div>
+              <div class="next-countdown">${countdownText}</div>
+              <button class="btn btn-sm btn-gold me-2" onclick="editSchedule('${nextMeeting.id}')"><i class="bi bi-pencil me-1"></i>Edit</button>
+              <button class="btn btn-sm btn-outline-light" onclick="showPage('schedule')"><i class="bi bi-eye me-1"></i>View</button>
+          `;
+    }
+    wrapper.innerHTML = `
+          <div class="content-header">
+              <div class="d-flex align-items-center gap-3">
+                  <img src="${currentUser?.role === "ceo" ? "img/Screenshot 2026-08-20 162312.png" : "img/soumya-photo.svg"}" alt="${currentUser?.full_name}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
+                  <div>
+                      <h4>${greeting}, ${currentUser?.fullName || currentUser?.full_name || "User"}</h4>
+                      <div class="subtitle">${formatDate(now)} &middot; ${timeStr}</div>
+                  </div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                  ${statusHtml}
+              </div>
+          </div>
+
+          <div class="row g-3 mb-4 fade-in">
+              <div class="col-6 col-lg-3">
+                  <div class="stat-card">
+                      <div class="stat-icon forest"><i class="bi bi-calendar-event"></i></div>
+                      <div class="stat-value">${scheduleStats.todayMeetings}</div>
+                      <div class="stat-label">Today's Meetings</div>
+                  </div>
+              </div>
+              <div class="col-6 col-lg-3">
+                  <div class="stat-card">
+                      <div class="stat-icon success"><i class="bi bi-clock"></i></div>
+                      <div class="stat-value">${scheduleStats.freeTimeFormatted}</div>
+                      <div class="stat-label">Available Time</div>
+                  </div>
+              </div>
+              <div class="col-6 col-lg-3">
+                  <div class="stat-card">
+                      <div class="stat-icon warning"><i class="bi bi-list-task"></i></div>
+                      <div class="stat-value">${tasks.pending}</div>
+                      <div class="stat-label">Pending Tasks</div>
+                  </div>
+              </div>
+              <div class="col-6 col-lg-3">
+                  <div class="stat-card">
+                      <div class="stat-icon info"><i class="bi bi-calendar-plus"></i></div>
+                      <div class="stat-value">${pendingBookings.count}</div>
+                      <div class="stat-label">Booking Requests</div>
+                  </div>
+              </div>
+          </div>
+
+          <div class="row g-3 mb-4">
+              <div class="col-lg-4">
+                  <div class="card-premium h-100">
+                      <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Task Overview</div>
+                      <div class="card-body">
+                          <div class="chart-container"><canvas id="taskChart"></canvas></div>
+                      </div>
+                  </div>
+              </div>
+              <div class="col-lg-4">
+                  <div class="card-premium h-100">
+                      <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Weekly Activity</div>
+                      <div class="card-body">
+                          <div class="chart-container"><canvas id="weeklyChart"></canvas></div>
+                      </div>
+                  </div>
+              </div>
+              <div class="col-lg-4">
+                  <div class="card-premium h-100">
+                      <div class="card-header"><i class="bi bi-graph-up me-2"></i>Booking Stats</div>
+                      <div class="card-body">
+                          <div class="chart-container"><canvas id="bookingChart"></canvas></div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <div class="row g-3 mb-4">
+              <div class="col-lg-5">
+                  <div class="next-meeting-card slide-up">
+                      <div class="d-flex justify-content-between align-items-start mb-3">
+                          <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:0.7;font-weight:600">What's Next</div>
+                      </div>
+                      ${nextMeetingHtml}
+                  </div>
+              </div>
+              <div class="col-lg-7">
+                  <div class="card-premium h-100">
+                      <div class="card-header d-flex justify-content-between align-items-center">
+                          <span><i class="bi bi-clock-history me-2"></i>Today's Timeline</span>
+                          <button class="btn btn-sm btn-outline-forest" onclick="showPage('schedule')">View All</button>
+                      </div>
+                      <div class="card-body" style="max-height:320px;overflow-y:auto">
+                          ${schedules.length === 0 ? showEmptyState("bi-calendar3", "No schedules for today") : schedules.map((s) => {
+      const isNow = nowTime >= s.start_time.substring(0, 5) && nowTime <= s.end_time.substring(0, 5);
+      const barClass = s.schedule_type === "personal" ? "focus" : s.schedule_type === "review" ? "booked" : "busy";
+      return `
+                                  <div class="timeline-item ${isNow ? "current-time-line" : ""}">
+                                      <div class="timeline-time">${formatTime12(s.start_time.substring(0, 5))}</div>
+                                      <div class="timeline-bar ${barClass}"></div>
+                                      <div class="timeline-content">
+                                          <div class="event-title">${s.title}</div>
+                                          <div class="event-detail">${s.location || ""} ${s.participants?.length ? "&middot; " + s.participants.join(", ") : ""}</div>
+                                      </div>
+                                      <span class="timeline-status status-${barClass}">${isNow ? "NOW" : s.schedule_type?.replace("_", " ") || "meeting"}</span>
+                                  </div>`;
+    }).join("")}
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          <div class="row g-3">
+              <div class="col-lg-6">
+                  <div class="card-premium">
+                      <div class="card-header d-flex justify-content-between align-items-center">
+                          <span><i class="bi bi-list-task me-2"></i>Today's Tasks</span>
+                          <button class="btn btn-sm btn-outline-forest" onclick="showPage('tasks')">View All</button>
+                      </div>
+                      <div class="card-body" id="dash-tasks"></div>
+                  </div>
+              </div>
+              <div class="col-lg-6">
+                  <div class="card-premium">
+                      <div class="card-header d-flex justify-content-between align-items-center">
+                          <span><i class="bi bi-bell me-2"></i>Reminders</span>
+                          <button class="btn btn-sm btn-outline-forest" onclick="showPage('reminders')">View All</button>
+                      </div>
+                      <div class="card-body" id="dash-reminders"></div>
+                  </div>
+              </div>
+          </div>
+
+          <div class="text-center mt-4">
+              <button class="btn btn-forest me-2" onclick="openScheduleModal()"><i class="bi bi-plus-lg me-1"></i>Schedule</button>
+              <button class="btn btn-gold me-2" onclick="openReminderModal()"><i class="bi bi-bell me-1"></i>Reminder</button>
+              <button class="btn btn-outline-forest me-2" onclick="openTaskModal()"><i class="bi bi-list-task me-1"></i>Task</button>
+              <button class="btn btn-outline-forest" onclick="openBookingModal()"><i class="bi bi-calendar-plus me-1"></i>Booking</button>
+          </div>
+      `;
+    loadDashTasks();
+    loadDashReminders();
+    initDashboardCharts(scheduleStats, tasks, pendingBookings);
+  } catch (err) {
+    wrapper.innerHTML = `<div class="alert alert-danger">Failed to load dashboard</div>`;
+  }
+}
+async function loadDashTasks() {
+  try {
+    const tasks = await api.getTasks("pending");
+    const el = document.getElementById("dash-tasks");
+    if (!el) return;
+    if (tasks.length === 0) {
+      el.innerHTML = showEmptyState("bi-check-circle", "No pending tasks");
+      return;
+    }
+    el.innerHTML = tasks.slice(0, 5).map((t) => `
+          <div class="task-item">
+              <div class="task-check ${t.status === "completed" ? "completed" : ""}" onclick="completeTask('${t.id}')">
+                  ${t.status === "completed" ? '<i class="bi bi-check" style="font-size:11px"></i>' : ""}
+              </div>
+              <div class="task-info">
+                  <div class="task-title ${t.status === "completed" ? "completed" : ""}">${t.title}</div>
+                  <div class="task-meta"><span class="priority-dot ${t.priority}"></span> ${t.priority} ${t.due_date ? "&middot; Due " + t.due_date : ""}</div>
+              </div>
+          </div>
+      `).join("");
+  } catch {
+  }
+}
+async function loadDashReminders() {
+  try {
+    const reminders = await api.getActiveReminders();
+    const el = document.getElementById("dash-reminders");
+    if (!el) return;
+    if (reminders.length === 0) {
+      el.innerHTML = showEmptyState("bi-bell", "No active reminders");
+      return;
+    }
+    el.innerHTML = reminders.slice(0, 5).map((r) => `
+          <div class="task-item">
+              <span class="priority-dot ${r.priority}" style="margin-top:6px"></span>
+              <div class="task-info">
+                  <div class="task-title">${r.title}</div>
+                  <div class="task-meta">${r.reminder_date} at ${formatTime12(r.reminder_time?.substring(0, 5))} &middot; ${r.repeat_type}</div>
+              </div>
+          </div>
+      `).join("");
+  } catch {
+  }
+}
+function initDashboardCharts(scheduleStats, tasks, pendingBookings) {
+  const forestColor = "#173F35";
+  const goldColor = "#C9A227";
+  const successColor = "#3E8E68";
+  const infoColor = "#4B7FA3";
+  const warningColor = "#D99A2B";
+  const taskCtx = document.getElementById("taskChart");
+  if (taskCtx) {
+    new window.Chart(taskCtx, {
+      type: "doughnut",
+      data: {
+        labels: ["Pending", "Completed", "Today"],
+        datasets: [{
+          data: [tasks.pending || 1, tasks.completed || 0, tasks.today || 0],
+          backgroundColor: [warningColor, successColor, forestColor],
+          borderWidth: 0,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: "65%",
+        plugins: {
+          legend: { position: "bottom", labels: { padding: 15, usePointStyle: true, pointStyleWidth: 8, font: { size: 11 } } }
+        }
+      }
     });
-    const wrapper = document.getElementById("content-wrapper");
-    wrapper.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-forest"></div></div>';
-    switch (page) {
-      case "dashboard":
-        renderDashboard();
-        break;
-      case "calendar":
-        renderCalendar();
-        break;
-      case "schedule":
-        renderSchedule();
-        break;
-      case "availability":
-        renderAvailability();
-        break;
-      case "bookings":
-        renderBookings();
-        break;
-      case "reminders":
-        renderReminders();
-        break;
-      case "tasks":
-        renderTasks();
-        break;
-      case "notifications":
-        renderNotifications();
-        break;
-      case "excel":
-        renderExcel();
-        break;
-      case "settings":
-        renderSettings();
-        break;
-      default:
-        renderDashboard();
-    }
   }
-  function formatDate(d) {
-    return d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-  }
-  function formatTime12(time) {
-    if (!time) return "";
-    const [h, m] = time.split(":").map(Number);
-    const period = h >= 12 ? "PM" : "AM";
-    const hr = h > 12 ? h - 12 : h === 0 ? 12 : h;
-    return `${hr}:${m.toString().padStart(2, "0")} ${period}`;
-  }
-  function timeNow() {
-    const d = /* @__PURE__ */ new Date();
-    return `${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`;
-  }
-  function showToast(message, type = "success") {
-    const icons = { success: "check-circle-fill", warning: "exclamation-triangle-fill", danger: "x-circle-fill", info: "info-circle-fill" };
-    const colors = { success: "var(--success)", warning: "var(--warning)", danger: "var(--danger)", info: "var(--info)" };
-    const toastEl = document.createElement("div");
-    toastEl.className = "toast toast-premium align-items-center border-0";
-    toastEl.setAttribute("role", "alert");
-    toastEl.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body d-flex align-items-center gap-2">
-                <i class="bi ${icons[type] || icons.info}" style="color:${colors[type] || colors.info}"></i>
-                <span>${message}</span>
-            </div>
-            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    `;
-    document.getElementById("toast-container").appendChild(toastEl);
-    const toast = new window.bootstrap.Toast(toastEl, { delay: 4e3 });
-    toast.show();
-  }
-  function showEmptyState(icon, message) {
-    return `<div class="empty-state"><i class="bi ${icon}"></i><p>${message}</p></div>`;
-  }
-  async function renderDashboard() {
-    const wrapper = document.getElementById("content-wrapper");
-    const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-    const now = /* @__PURE__ */ new Date();
-    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const greeting = now.getHours() < 12 ? "Good Morning" : now.getHours() < 17 ? "Good Afternoon" : "Good Evening";
-    try {
-      const [scheduleStats, schedules, tasks, pendingBookings, reminders, focusSessions] = await Promise.all([
-        api.getScheduleStats().catch(() => ({ todayMeetings: 0, freeTimeFormatted: "0h 0m" })),
-        api.getSchedules(today).catch(() => []),
-        api.getTaskCounts().catch(() => ({ pending: 0, today: 0, completed: 0 })),
-        api.getPendingBookingsCount().catch(() => ({ count: 0 })),
-        api.getActiveReminders().catch(() => []),
-        api.getFocusSessions(today).catch(() => [])
-      ]);
-      const nowTime = timeStr.replace(/ AM| PM/, "").trim();
-      const isFocus = focusSessions.some((f) => nowTime >= f.start_time.substring(0, 5) && nowTime <= f.end_time.substring(0, 5));
-      const currentMeeting = schedules.find((s) => nowTime >= s.start_time.substring(0, 5) && nowTime <= s.end_time.substring(0, 5) && s.schedule_type !== "personal");
-      const nextMeeting = schedules.find((s) => s.start_time.substring(0, 5) > nowTime && s.status === "active");
-      let statusHtml = '<span class="status-indicator status-available"><span class="status-dot"></span>Available</span>';
-      if (isFocus) statusHtml = '<span class="status-indicator status-focus-mode"><span class="status-dot"></span>Focus Mode</span>';
-      else if (currentMeeting) statusHtml = '<span class="status-indicator status-meeting"><span class="status-dot"></span>In Meeting</span>';
-      let nextMeetingHtml = '<div class="text-center text-muted py-4"><i class="bi bi-calendar-check" style="font-size:32px;opacity:0.2"></i><p class="mt-2 mb-0">No upcoming meetings</p></div>';
-      if (nextMeeting) {
-        const [nh, nm] = nextMeeting.start_time.split(":").map(Number);
-        const targetTime = /* @__PURE__ */ new Date();
-        targetTime.setHours(nh, nm, 0, 0);
-        const diffMs = targetTime.getTime() - now.getTime();
-        const diffMin = Math.max(0, Math.floor(diffMs / 6e4));
-        const countdownText = diffMin <= 0 ? "Starting now" : `Starts in ${diffMin} minutes`;
-        nextMeetingHtml = `
-                <div class="next-time-display">${formatTime12(nextMeeting.start_time)}</div>
-                <div class="next-meeting-title">${nextMeeting.title}</div>
-                ${nextMeeting.location ? `<div class="next-meta"><i class="bi bi-geo-alt me-1"></i>${nextMeeting.location}</div>` : ""}
-                ${nextMeeting.participants?.length ? `<div class="next-meta"><i class="bi bi-people me-1"></i>${nextMeeting.participants.join(", ")}</div>` : ""}
-                <div class="next-meta"><i class="bi bi-clock me-1"></i>${formatTime12(nextMeeting.start_time)} - ${formatTime12(nextMeeting.end_time)}</div>
-                <div class="next-countdown">${countdownText}</div>
-                <button class="btn btn-sm btn-gold me-2" onclick="editSchedule('${nextMeeting.id}')"><i class="bi bi-pencil me-1"></i>Edit</button>
-                <button class="btn btn-sm btn-outline-light" onclick="showPage('schedule')"><i class="bi bi-eye me-1"></i>View</button>
-            `;
+  const weeklyCtx = document.getElementById("weeklyChart");
+  if (weeklyCtx) {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    new window.Chart(weeklyCtx, {
+      type: "bar",
+      data: {
+        labels: days,
+        datasets: [
+          { label: "Meetings", data: [3, 5, 2, 4, scheduleStats.todayMeetings || 1], backgroundColor: forestColor, borderRadius: 4 },
+          { label: "Tasks", data: [2, 3, 4, 1, tasks.today || 2], backgroundColor: goldColor, borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: "bottom", labels: { padding: 12, usePointStyle: true, pointStyleWidth: 8, font: { size: 11 } } } },
+        scales: { y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
       }
-      wrapper.innerHTML = `
-            <div class="content-header">
-                <div class="d-flex align-items-center gap-3">
-                    <img src="${currentUser?.role === "ceo" ? "img/Screenshot 2026-08-20 162312.png" : "img/soumya-photo.svg"}" alt="${currentUser?.full_name}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
-                    <div>
-                        <h4>${greeting}, ${currentUser?.fullName || currentUser?.full_name || "User"}</h4>
-                        <div class="subtitle">${formatDate(now)} &middot; ${timeStr}</div>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    ${statusHtml}
-                </div>
-            </div>
-
-            <div class="row g-3 mb-4 fade-in">
-                <div class="col-6 col-lg-3">
-                    <div class="stat-card">
-                        <div class="stat-icon forest"><i class="bi bi-calendar-event"></i></div>
-                        <div class="stat-value">${scheduleStats.todayMeetings}</div>
-                        <div class="stat-label">Today's Meetings</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg-3">
-                    <div class="stat-card">
-                        <div class="stat-icon success"><i class="bi bi-clock"></i></div>
-                        <div class="stat-value">${scheduleStats.freeTimeFormatted}</div>
-                        <div class="stat-label">Available Time</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg-3">
-                    <div class="stat-card">
-                        <div class="stat-icon warning"><i class="bi bi-list-task"></i></div>
-                        <div class="stat-value">${tasks.pending}</div>
-                        <div class="stat-label">Pending Tasks</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg-3">
-                    <div class="stat-card">
-                        <div class="stat-icon info"><i class="bi bi-calendar-plus"></i></div>
-                        <div class="stat-value">${pendingBookings.count}</div>
-                        <div class="stat-label">Booking Requests</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row g-3 mb-4">
-                <div class="col-lg-4">
-                    <div class="card-premium h-100">
-                        <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Task Overview</div>
-                        <div class="card-body">
-                            <div class="chart-container"><canvas id="taskChart"></canvas></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4">
-                    <div class="card-premium h-100">
-                        <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Weekly Activity</div>
-                        <div class="card-body">
-                            <div class="chart-container"><canvas id="weeklyChart"></canvas></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4">
-                    <div class="card-premium h-100">
-                        <div class="card-header"><i class="bi bi-graph-up me-2"></i>Booking Stats</div>
-                        <div class="card-body">
-                            <div class="chart-container"><canvas id="bookingChart"></canvas></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row g-3 mb-4">
-                <div class="col-lg-5">
-                    <div class="next-meeting-card slide-up">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:0.7;font-weight:600">What's Next</div>
-                        </div>
-                        ${nextMeetingHtml}
-                    </div>
-                </div>
-                <div class="col-lg-7">
-                    <div class="card-premium h-100">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-clock-history me-2"></i>Today's Timeline</span>
-                            <button class="btn btn-sm btn-outline-forest" onclick="showPage('schedule')">View All</button>
-                        </div>
-                        <div class="card-body" style="max-height:320px;overflow-y:auto">
-                            ${schedules.length === 0 ? showEmptyState("bi-calendar3", "No schedules for today") : schedules.map((s) => {
-        const isNow = nowTime >= s.start_time.substring(0, 5) && nowTime <= s.end_time.substring(0, 5);
-        const barClass = s.schedule_type === "personal" ? "focus" : s.schedule_type === "review" ? "booked" : "busy";
-        return `
-                                    <div class="timeline-item ${isNow ? "current-time-line" : ""}">
-                                        <div class="timeline-time">${formatTime12(s.start_time.substring(0, 5))}</div>
-                                        <div class="timeline-bar ${barClass}"></div>
-                                        <div class="timeline-content">
-                                            <div class="event-title">${s.title}</div>
-                                            <div class="event-detail">${s.location || ""} ${s.participants?.length ? "&middot; " + s.participants.join(", ") : ""}</div>
-                                        </div>
-                                        <span class="timeline-status status-${barClass}">${isNow ? "NOW" : s.schedule_type?.replace("_", " ") || "meeting"}</span>
-                                    </div>`;
-      }).join("")}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row g-3">
-                <div class="col-lg-6">
-                    <div class="card-premium">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-list-task me-2"></i>Today's Tasks</span>
-                            <button class="btn btn-sm btn-outline-forest" onclick="showPage('tasks')">View All</button>
-                        </div>
-                        <div class="card-body" id="dash-tasks"></div>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="card-premium">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-bell me-2"></i>Reminders</span>
-                            <button class="btn btn-sm btn-outline-forest" onclick="showPage('reminders')">View All</button>
-                        </div>
-                        <div class="card-body" id="dash-reminders"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="text-center mt-4">
-                <button class="btn btn-forest me-2" onclick="openScheduleModal()"><i class="bi bi-plus-lg me-1"></i>Schedule</button>
-                <button class="btn btn-gold me-2" onclick="openReminderModal()"><i class="bi bi-bell me-1"></i>Reminder</button>
-                <button class="btn btn-outline-forest me-2" onclick="openTaskModal()"><i class="bi bi-list-task me-1"></i>Task</button>
-                <button class="btn btn-outline-forest" onclick="openBookingModal()"><i class="bi bi-calendar-plus me-1"></i>Booking</button>
-            </div>
-        `;
-      loadDashTasks();
-      loadDashReminders();
-      initDashboardCharts(scheduleStats, tasks, pendingBookings);
-    } catch (err) {
-      wrapper.innerHTML = `<div class="alert alert-danger">Failed to load dashboard</div>`;
-    }
+    });
   }
-  async function loadDashTasks() {
-    try {
-      const tasks = await api.getTasks("pending");
-      const el = document.getElementById("dash-tasks");
-      if (!el) return;
-      if (tasks.length === 0) {
-        el.innerHTML = showEmptyState("bi-check-circle", "No pending tasks");
-        return;
+  const bookingCtx = document.getElementById("bookingChart");
+  if (bookingCtx) {
+    new window.Chart(bookingCtx, {
+      type: "line",
+      data: {
+        labels: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        datasets: [{
+          label: "Bookings",
+          data: [2, 1, 3, 0, pendingBookings.count || 1],
+          borderColor: forestColor,
+          backgroundColor: "rgba(23,63,53,0.08)",
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: forestColor,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
       }
-      el.innerHTML = tasks.slice(0, 5).map((t) => `
-            <div class="task-item">
-                <div class="task-check ${t.status === "completed" ? "completed" : ""}" onclick="completeTask('${t.id}')">
-                    ${t.status === "completed" ? '<i class="bi bi-check" style="font-size:11px"></i>' : ""}
-                </div>
-                <div class="task-info">
-                    <div class="task-title ${t.status === "completed" ? "completed" : ""}">${t.title}</div>
-                    <div class="task-meta"><span class="priority-dot ${t.priority}"></span> ${t.priority} ${t.due_date ? "&middot; Due " + t.due_date : ""}</div>
-                </div>
-            </div>
-        `).join("");
-    } catch {
-    }
+    });
   }
-  async function loadDashReminders() {
+}
+function uploadExcel() {
+  const input = document.getElementById("excel-file-input");
+  const file = input?.files?.[0];
+  if (!file) {
+    showToast("Please select a file", "warning");
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
     try {
-      const reminders = await api.getActiveReminders();
-      const el = document.getElementById("dash-reminders");
-      if (!el) return;
-      if (reminders.length === 0) {
-        el.innerHTML = showEmptyState("bi-bell", "No active reminders");
-        return;
+      const wb = window.XLSX.read(e.target?.result, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = window.XLSX.utils.sheet_to_json(ws);
+      showToast(`Parsed ${data.length} rows from ${file.name}`);
+      const listEl = document.getElementById("excel-file-list");
+      if (listEl) {
+        listEl.innerHTML += `<div class="d-flex justify-content-between align-items-center p-2 rounded mb-1" style="background:rgba(62,142,104,0.06)">
+                  <span style="font-size:13px"><i class="bi bi-file-earmark-excel me-2" style="color:var(--success)"></i>${file.name} (${data.length} rows)</span>
+                  <span class="badge bg-success">Uploaded</span>
+              </div>`;
       }
-      el.innerHTML = reminders.slice(0, 5).map((r) => `
-            <div class="task-item">
-                <span class="priority-dot ${r.priority}" style="margin-top:6px"></span>
-                <div class="task-info">
-                    <div class="task-title">${r.title}</div>
-                    <div class="task-meta">${r.reminder_date} at ${formatTime12(r.reminder_time?.substring(0, 5))} &middot; ${r.repeat_type}</div>
-                </div>
-            </div>
-        `).join("");
-    } catch {
-    }
-  }
-  function initDashboardCharts(scheduleStats, tasks, pendingBookings) {
-    const forestColor = "#173F35";
-    const goldColor = "#C9A227";
-    const successColor = "#3E8E68";
-    const infoColor = "#4B7FA3";
-    const warningColor = "#D99A2B";
-    const taskCtx = document.getElementById("taskChart");
-    if (taskCtx) {
-      new window.Chart(taskCtx, {
-        type: "doughnut",
-        data: {
-          labels: ["Pending", "Completed", "Today"],
-          datasets: [{
-            data: [tasks.pending || 1, tasks.completed || 0, tasks.today || 0],
-            backgroundColor: [warningColor, successColor, forestColor],
-            borderWidth: 0,
-            borderRadius: 4
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          cutout: "65%",
-          plugins: {
-            legend: { position: "bottom", labels: { padding: 15, usePointStyle: true, pointStyleWidth: 8, font: { size: 11 } } }
-          }
-        }
-      });
-    }
-    const weeklyCtx = document.getElementById("weeklyChart");
-    if (weeklyCtx) {
-      const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-      new window.Chart(weeklyCtx, {
-        type: "bar",
-        data: {
-          labels: days,
-          datasets: [
-            { label: "Meetings", data: [3, 5, 2, 4, scheduleStats.todayMeetings || 1], backgroundColor: forestColor, borderRadius: 4 },
-            { label: "Tasks", data: [2, 3, 4, 1, tasks.today || 2], backgroundColor: goldColor, borderRadius: 4 }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { position: "bottom", labels: { padding: 12, usePointStyle: true, pointStyleWidth: 8, font: { size: 11 } } } },
-          scales: { y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
-        }
-      });
-    }
-    const bookingCtx = document.getElementById("bookingChart");
-    if (bookingCtx) {
-      new window.Chart(bookingCtx, {
-        type: "line",
-        data: {
-          labels: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-          datasets: [{
-            label: "Bookings",
-            data: [2, 1, 3, 0, pendingBookings.count || 1],
-            borderColor: forestColor,
-            backgroundColor: "rgba(23,63,53,0.08)",
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: forestColor,
-            pointRadius: 4,
-            pointHoverRadius: 6
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, grid: { color: "rgba(0,0,0,0.04)" }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
-        }
-      });
-    }
-  }
-  function uploadExcel() {
-    const input = document.getElementById("excel-file-input");
-    const file = input?.files?.[0];
-    if (!file) {
-      showToast("Please select a file", "warning");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const wb = window.XLSX.read(e.target?.result, { type: "array" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = window.XLSX.utils.sheet_to_json(ws);
-        showToast(`Parsed ${data.length} rows from ${file.name}`);
-        const listEl = document.getElementById("excel-file-list");
-        if (listEl) {
-          listEl.innerHTML += `<div class="d-flex justify-content-between align-items-center p-2 rounded mb-1" style="background:rgba(62,142,104,0.06)">
-                    <span style="font-size:13px"><i class="bi bi-file-earmark-excel me-2" style="color:var(--success)"></i>${file.name} (${data.length} rows)</span>
-                    <span class="badge bg-success">Uploaded</span>
-                </div>`;
-        }
-        input.value = "";
-      } catch (err) {
-        showToast("Failed to parse Excel file", "danger");
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }
-  async function renderSchedule() {
-    const wrapper = document.getElementById("content-wrapper");
-    const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-    try {
-      const [schedules, focusSessions] = await Promise.all([
-        api.getSchedules(today),
-        api.getFocusSessions(today)
-      ]);
-      const hours = Array.from({ length: 12 }, (_, i) => i + 8);
-      wrapper.innerHTML = `
-            <div class="content-header">
-                <div>
-                    <h4>Today's Schedule</h4>
-                    <div class="subtitle">${formatDate(/* @__PURE__ */ new Date())}</div>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-forest" onclick="openFindTimeModal()"><i class="bi bi-search me-1"></i>Find Time</button>
-                    <button class="btn btn-gold" onclick="openScheduleModal()"><i class="bi bi-plus-lg me-1"></i>Add Schedule</button>
-                </div>
-            </div>
-            <div class="card-premium">
-                <div class="card-body p-0">
-                    ${hours.map((h) => {
-        const hourStr = `${h.toString().padStart(2, "0")}:00`;
-        const hourEnd = `${(h + 1).toString().padStart(2, "0")}:00`;
-        const nowTime = timeNow();
-        const isCurrentHour = nowTime >= hourStr && nowTime < hourEnd;
-        const events = schedules.filter((s) => {
-          const st = s.start_time.substring(0, 5);
-          const et = s.end_time.substring(0, 5);
-          return st < hourEnd && et > hourStr;
-        });
-        const focus = focusSessions.find((f) => f.start_time.substring(0, 5) < hourEnd && f.end_time.substring(0, 5) > hourStr);
-        return `
-                            <div class="d-flex border-bottom" style="min-height:70px">
-                                <div style="width:90px;padding:12px 16px;background:${isCurrentHour ? "rgba(201,162,39,0.08)" : "#fafafa"};font-size:12px;font-weight:600;color:#888;border-right:1px solid rgba(0,0,0,0.06)">
-                                    ${isCurrentHour ? '<span class="text-danger">\u25CF</span> ' : ""}${formatTime12(hourStr)}
-                                </div>
-                                <div class="flex-grow-1 p-2" style="cursor:pointer" onclick="openScheduleModal(null,'${hourStr}')">
-                                    ${focus ? `<div class="rounded px-3 py-2 mb-1" style="background:rgba(75,127,163,0.1);border-left:3px solid var(--info);font-size:13px"><i class="bi bi-headphones me-1"></i>${focus.title || "Focus Time"}</div>` : ""}
-                                    ${events.map((s) => `
-                                        <div class="rounded px-3 py-2 mb-1" style="background:rgba(23,63,53,0.06);border-left:3px solid var(--forest);cursor:pointer" onclick="event.stopPropagation();editSchedule('${s.id}')">
-                                            <div style="font-size:13px;font-weight:600">${s.title}</div>
-                                            <div style="font-size:11px;color:#888">${formatTime12(s.start_time.substring(0, 5))} - ${formatTime12(s.end_time.substring(0, 5))} ${s.location ? "&middot; " + s.location : ""}</div>
-                                        </div>
-                                    `).join("")}
-                                </div>
-                            </div>`;
-      }).join("")}
-                </div>
-            </div>
-        `;
+      input.value = "";
     } catch (err) {
-      wrapper.innerHTML = '<div class="alert alert-danger">Failed to load schedule</div>';
+      showToast("Failed to parse Excel file", "danger");
     }
-  }
-  async function renderCalendar() {
-    const wrapper = document.getElementById("content-wrapper");
-    const year = currentPageDate.getFullYear();
-    const month = currentPageDate.getMonth();
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = /* @__PURE__ */ new Date();
-    const startDate = `${year}-${(month + 1).toString().padStart(2, "0")}-01`;
-    const endDate = `${year}-${(month + 1).toString().padStart(2, "0")}-${daysInMonth.toString().padStart(2, "0")}`;
-    try {
-      const schedules = await api.getSchedules(void 0, startDate, endDate);
-      const monthName = currentPageDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      let daysHtml = "";
-      for (let i = 0; i < firstDay; i++) {
-        daysHtml += '<div class="calendar-day other-month"></div>';
-      }
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dateStr = `${year}-${(month + 1).toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`;
-        const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
-        const daySchedules = schedules.filter((s) => s.schedule_date === dateStr);
-        daysHtml += `
-                <div class="calendar-day ${isToday ? "today" : ""}" onclick="currentPageDate=new Date(${year},${month},${d});openScheduleModal(null,null,'${dateStr}')">
-                    <div class="day-number">${d}</div>
-                    ${daySchedules.slice(0, 3).map((s) => `
-                        <div class="calendar-event meeting">${formatTime12(s.start_time?.substring(0, 5))} ${s.title}</div>
-                    `).join("")}
-                    ${daySchedules.length > 3 ? `<div style="font-size:10px;color:#888">+${daySchedules.length - 3} more</div>` : ""}
-                </div>`;
-      }
-      wrapper.innerHTML = `
-            <div class="content-header">
-                <div>
-                    <h4>Calendar</h4>
-                    <div class="subtitle">${monthName}</div>
-                </div>
-                <div class="d-flex gap-2 align-items-center">
-                    <button class="btn btn-outline-forest btn-sm" onclick="changeMonth(-1)"><i class="bi bi-chevron-left"></i></button>
-                    <span class="fw-semibold">${monthName}</span>
-                    <button class="btn btn-outline-forest btn-sm" onclick="changeMonth(1)"><i class="bi bi-chevron-right"></i></button>
-                    <button class="btn btn-gold ms-2" onclick="openScheduleModal()"><i class="bi bi-plus-lg me-1"></i>Add</button>
-                </div>
-            </div>
-            <div class="card-premium p-3">
-                <div class="calendar-grid">
-                    ${dayNames.map((d) => `<div class="calendar-header-cell">${d}</div>`).join("")}
-                    ${daysHtml}
-                </div>
-            </div>
-        `;
-    } catch (err) {
-      wrapper.innerHTML = '<div class="alert alert-danger">Failed to load calendar</div>';
-    }
-  }
-  async function renderAvailability() {
-    const wrapper = document.getElementById("content-wrapper");
-    try {
-      const availability = await api.getAvailability();
-      const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-      wrapper.innerHTML = `
-            <div class="content-header">
-                <div>
-                    <h4>Availability</h4>
-                    <div class="subtitle">Manage your available hours</div>
-                </div>
-                <button class="btn btn-gold" onclick="addAvailability()"><i class="bi bi-plus-lg me-1"></i>Add Slot</button>
-            </div>
-            <div class="row g-3">
-                ${days.map((day, i) => {
-        const slots = availability.filter((a) => a.day_of_week === i);
-        return `
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card-premium">
-                                <div class="card-header fw-semibold">${day}</div>
-                                <div class="card-body">
-                                    ${slots.length === 0 ? '<div class="text-muted" style="font-size:12px">No availability set</div>' : slots.map((s) => `
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <span style="font-size:13px">${formatTime12(s.start_time?.substring(0, 5))} - ${formatTime12(s.end_time?.substring(0, 5))}</span>
-                                            <span class="badge ${s.is_available ? "bg-success" : "bg-secondary"}">${s.is_available ? "Available" : "Blocked"}</span>
-                                        </div>
-                                    `).join("")}
-                                </div>
-                            </div>
-                        </div>`;
-      }).join("")}
-            </div>
-        `;
-    } catch (err) {
-      wrapper.innerHTML = '<div class="alert alert-danger">Failed to load availability</div>';
-    }
-  }
-  async function renderBookings() {
-    const wrapper = document.getElementById("content-wrapper");
-    try {
-      const bookings = await api.getBookings();
-      wrapper.innerHTML = `
-            <div class="content-header">
-                <div>
-                    <h4>Bookings</h4>
-                    <div class="subtitle">Manage booking requests</div>
-                </div>
-                <button class="btn btn-gold" onclick="openBookingModal()"><i class="bi bi-plus-lg me-1"></i>New Booking</button>
-            </div>
-            <div class="d-flex gap-2 mb-3">
-                <button class="btn btn-sm btn-outline-forest active" onclick="filterBookings('all',this)">All</button>
-                <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('pending',this)">Pending</button>
-                <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('accepted',this)">Accepted</button>
-                <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('rejected',this)">Rejected</button>
-            </div>
-            <div class="card-premium">
-                <div class="card-body p-0">
-                    ${bookings.length === 0 ? showEmptyState("bi-calendar-check", "No bookings yet") : `
-                    <div class="table-responsive">
-                        <table class="table table-premium mb-0">
-                            <thead><tr><th>Name</th><th>Company</th><th>Date</th><th>Time</th><th>Purpose</th><th>Status</th><th>Actions</th></tr></thead>
-                            <tbody>
-                                ${bookings.map((b) => `
-                                    <tr data-status="${b.status}">
-                                        <td class="fw-semibold">${b.booked_by_name}</td>
-                                        <td>${b.company || "-"}</td>
-                                        <td>${b.booking_date}</td>
-                                        <td>${formatTime12(b.preferred_time?.substring(0, 5))}</td>
-                                        <td>${b.purpose?.substring(0, 30)}${b.purpose?.length > 30 ? "..." : ""}</td>
-                                        <td><span class="badge ${b.status === "accepted" ? "bg-success" : b.status === "pending" ? "bg-warning" : b.status === "rejected" ? "bg-danger" : "bg-secondary"}">${b.status}</span></td>
-                                        <td>
-                                            ${b.status === "pending" ? `
-                                                <button class="btn btn-sm btn-outline-success me-1" onclick="handleBooking('${b.id}','accepted')"><i class="bi bi-check"></i></button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="handleBooking('${b.id}','rejected')"><i class="bi bi-x"></i></button>
-                                            ` : ""}
-                                        </td>
-                                    </tr>
-                                `).join("")}
-                            </tbody>
-                        </table>
-                    </div>`}
-                </div>
-            </div>
-        `;
-    } catch (err) {
-      wrapper.innerHTML = '<div class="alert alert-danger">Failed to load bookings</div>';
-    }
-  }
-  async function renderReminders() {
-    const wrapper = document.getElementById("content-wrapper");
-    try {
-      const reminders = await api.getReminders();
-      wrapper.innerHTML = `
-            <div class="content-header">
-                <div>
-                    <h4>Reminders</h4>
-                    <div class="subtitle">Never miss an important task</div>
-                </div>
-                <button class="btn btn-gold" onclick="openReminderModal()"><i class="bi bi-plus-lg me-1"></i>Add Reminder</button>
-            </div>
-            <div class="card-premium">
-                <div class="card-body">
-                    ${reminders.length === 0 ? showEmptyState("bi-bell", "No reminders") : reminders.map((r) => `
-                        <div class="task-item">
-                            <span class="priority-dot ${r.priority}" style="margin-top:6px"></span>
-                            <div class="task-info flex-grow-1">
-                                <div class="task-title ${r.status === "completed" ? "completed" : ""}">${r.title}</div>
-                                <div class="task-meta">${r.reminder_date} at ${formatTime12(r.reminder_time?.substring(0, 5))} &middot; ${r.repeat_type} &middot; <span class="badge ${r.status === "completed" ? "bg-success" : "bg-warning"}">${r.status}</span></div>
-                            </div>
-                            <div class="d-flex gap-1">
-                                ${r.status !== "completed" ? `<button class="btn btn-sm btn-outline-success" onclick="completeReminder('${r.id}')"><i class="bi bi-check-lg"></i></button>` : ""}
-                                <button class="btn btn-sm btn-outline-forest" onclick="editReminder('${r.id}')"><i class="bi bi-pencil"></i></button>
-                            </div>
-                        </div>
-                    `).join("")}
-                </div>
-            </div>
-        `;
-    } catch (err) {
-      wrapper.innerHTML = '<div class="alert alert-danger">Failed to load reminders</div>';
-    }
-  }
-  async function renderTasks() {
-    const wrapper = document.getElementById("content-wrapper");
-    try {
-      const [pending, completed, allTasks] = await Promise.all([
-        api.getTasks("pending"),
-        api.getTasks("completed"),
-        api.getTasks()
-      ]);
-      wrapper.innerHTML = `
-            <div class="content-header">
-                <div>
-                    <h4>Tasks</h4>
-                    <div class="subtitle">${pending.length} pending &middot; ${completed.length} completed</div>
-                </div>
-                <button class="btn btn-gold" onclick="openTaskModal()"><i class="bi bi-plus-lg me-1"></i>Add Task</button>
-            </div>
-            <div class="row g-3">
-                <div class="col-lg-8">
-                    <div class="card-premium">
-                        <div class="card-header"><i class="bi bi-list-task me-2"></i>Pending Tasks</div>
-                        <div class="card-body">
-                            ${pending.length === 0 ? showEmptyState("bi-check-circle", "All tasks completed!") : pending.map((t) => `
-                                <div class="task-item">
-                                    <div class="task-check" onclick="completeTask('${t.id}')"></div>
-                                    <div class="task-info flex-grow-1" onclick="editTask('${t.id}')" style="cursor:pointer">
-                                        <div class="task-title">${t.title}</div>
-                                        <div class="task-meta"><span class="priority-dot ${t.priority}"></span> ${t.priority} ${t.due_date ? "&middot; Due " + t.due_date : ""}</div>
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-forest" onclick="editTask('${t.id}')"><i class="bi bi-pencil"></i></button>
-                                </div>
-                            `).join("")}
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4">
-                    <div class="card-premium">
-                        <div class="card-header"><i class="bi bi-check-circle me-2"></i>Completed</div>
-                        <div class="card-body" style="max-height:400px;overflow-y:auto">
-                            ${completed.length === 0 ? showEmptyState("bi-inbox", "No completed tasks") : completed.slice(0, 10).map((t) => `
-                                <div class="task-item">
-                                    <div class="task-check completed"><i class="bi bi-check" style="font-size:11px"></i></div>
-                                    <div class="task-info">
-                                        <div class="task-title completed">${t.title}</div>
-                                        <div class="task-meta">Completed</div>
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-forest" onclick="reopenTask('${t.id}')"><i class="bi bi-arrow-counterclockwise"></i></button>
-                                </div>
-                            `).join("")}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    } catch (err) {
-      wrapper.innerHTML = '<div class="alert alert-danger">Failed to load tasks</div>';
-    }
-  }
-  async function renderNotifications() {
-    const wrapper = document.getElementById("content-wrapper");
-    try {
-      const notifications = await api.getNotifications();
-      wrapper.innerHTML = `
-            <div class="content-header">
-                <div>
-                    <h4>Notifications</h4>
-                    <div class="subtitle">${notifications.filter((n) => !n.is_read).length} unread</div>
-                </div>
-                <button class="btn btn-outline-forest" onclick="markAllRead()"><i class="bi bi-check-all me-1"></i>Mark All Read</button>
-            </div>
-            <div class="card-premium">
-                <div class="card-body p-0">
-                    ${notifications.length === 0 ? showEmptyState("bi-inbox", "No notifications") : notifications.map((n) => `
-                        <div class="notification-item ${!n.is_read ? "unread" : ""}" onclick="markNotifRead('${n.id}',this)">
-                            <div class="notif-title">${n.title}</div>
-                            <div class="notif-message">${n.message}</div>
-                            <div class="notif-time">${new Date(n.created_at).toLocaleString()}</div>
-                        </div>
-                    `).join("")}
-                </div>
-            </div>
-        `;
-    } catch (err) {
-      wrapper.innerHTML = '<div class="alert alert-danger">Failed to load notifications</div>';
-    }
-  }
-  function renderExcel() {
-    const wrapper = document.getElementById("content-wrapper");
+  };
+  reader.readAsArrayBuffer(file);
+}
+async function renderSchedule() {
+  const wrapper = document.getElementById("content-wrapper");
+  const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  try {
+    const [schedules, focusSessions] = await Promise.all([
+      api.getSchedules(today),
+      api.getFocusSessions(today)
+    ]);
+    const hours = Array.from({ length: 12 }, (_, i) => i + 8);
     wrapper.innerHTML = `
-        <div class="content-header">
-            <div>
-                <h4>Excel Data</h4>
-                <div class="subtitle">Import and export booking data</div>
-            </div>
-            <button class="btn btn-gold" onclick="exportBookingsToExcel()"><i class="bi bi-download me-1"></i>Export Bookings</button>
-        </div>
-        <div class="row g-4">
-            <div class="col-lg-6">
-                <div class="card-premium">
-                    <div class="card-header"><i class="bi bi-upload me-2"></i>Import Excel File</div>
-                    <div class="card-body">
-                        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('excel-file-input').click()">
-                            <i class="bi bi-cloud-arrow-up"></i>
-                            <p class="mb-1 fw-semibold" style="font-size:14px">Click to upload or drag and drop</p>
-                            <p class="mb-0" style="font-size:12px;color:var(--text-muted)">Supports .xlsx, .xls, .csv files</p>
-                        </div>
-                        <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadExcel()">
-                        <button class="btn btn-forest w-100 mt-3" onclick="uploadExcel()"><i class="bi bi-upload me-1"></i>Upload File</button>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="card-premium">
-                    <div class="card-header"><i class="bi bi-file-earmark-check me-2"></i>Uploaded Files</div>
-                    <div class="card-body" id="excel-file-list">
-                        <div class="empty-state"><i class="bi bi-inbox"></i><p>No files uploaded yet</p></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    const zone = document.getElementById("upload-zone");
-    if (zone) {
-      zone.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        zone.classList.add("dragover");
+          <div class="content-header">
+              <div>
+                  <h4>Today's Schedule</h4>
+                  <div class="subtitle">${formatDate(/* @__PURE__ */ new Date())}</div>
+              </div>
+              <div class="d-flex gap-2">
+                  <button class="btn btn-outline-forest" onclick="openFindTimeModal()"><i class="bi bi-search me-1"></i>Find Time</button>
+                  <button class="btn btn-gold" onclick="openScheduleModal()"><i class="bi bi-plus-lg me-1"></i>Add Schedule</button>
+              </div>
+          </div>
+          <div class="card-premium">
+              <div class="card-body p-0">
+                  ${hours.map((h) => {
+      const hourStr = `${h.toString().padStart(2, "0")}:00`;
+      const hourEnd = `${(h + 1).toString().padStart(2, "0")}:00`;
+      const nowTime = timeNow();
+      const isCurrentHour = nowTime >= hourStr && nowTime < hourEnd;
+      const events = schedules.filter((s) => {
+        const st = s.start_time.substring(0, 5);
+        const et = s.end_time.substring(0, 5);
+        return st < hourEnd && et > hourStr;
       });
-      zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
-      zone.addEventListener("drop", (e) => {
-        e.preventDefault();
-        zone.classList.remove("dragover");
-        const input = document.getElementById("excel-file-input");
-        if (e.dataTransfer?.files.length) {
-          input.files = e.dataTransfer.files;
-          uploadExcel();
-        }
-      });
-    }
+      const focus = focusSessions.find((f) => f.start_time.substring(0, 5) < hourEnd && f.end_time.substring(0, 5) > hourStr);
+      return `
+                          <div class="d-flex border-bottom" style="min-height:70px">
+                              <div style="width:90px;padding:12px 16px;background:${isCurrentHour ? "rgba(201,162,39,0.08)" : "#fafafa"};font-size:12px;font-weight:600;color:#888;border-right:1px solid rgba(0,0,0,0.06)">
+                                  ${isCurrentHour ? '<span class="text-danger">\u25CF</span> ' : ""}${formatTime12(hourStr)}
+                              </div>
+                              <div class="flex-grow-1 p-2" style="cursor:pointer" onclick="openScheduleModal(null,'${hourStr}')">
+                                  ${focus ? `<div class="rounded px-3 py-2 mb-1" style="background:rgba(75,127,163,0.1);border-left:3px solid var(--info);font-size:13px"><i class="bi bi-headphones me-1"></i>${focus.title || "Focus Time"}</div>` : ""}
+                                  ${events.map((s) => `
+                                      <div class="rounded px-3 py-2 mb-1" style="background:rgba(23,63,53,0.06);border-left:3px solid var(--forest);cursor:pointer" onclick="event.stopPropagation();editSchedule('${s.id}')">
+                                          <div style="font-size:13px;font-weight:600">${s.title}</div>
+                                          <div style="font-size:11px;color:#888">${formatTime12(s.start_time.substring(0, 5))} - ${formatTime12(s.end_time.substring(0, 5))} ${s.location ? "&middot; " + s.location : ""}</div>
+                                      </div>
+                                  `).join("")}
+                              </div>
+                          </div>`;
+    }).join("")}
+              </div>
+          </div>
+      `;
+  } catch (err) {
+    wrapper.innerHTML = '<div class="alert alert-danger">Failed to load schedule</div>';
   }
-  function renderSettings() {
-    const wrapper = document.getElementById("content-wrapper");
+}
+async function renderCalendar() {
+  const wrapper = document.getElementById("content-wrapper");
+  const year = currentPageDate.getFullYear();
+  const month = currentPageDate.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = /* @__PURE__ */ new Date();
+  const startDate = `${year}-${(month + 1).toString().padStart(2, "0")}-01`;
+  const endDate = `${year}-${(month + 1).toString().padStart(2, "0")}-${daysInMonth.toString().padStart(2, "0")}`;
+  try {
+    const schedules = await api.getSchedules(void 0, startDate, endDate);
+    const monthName = currentPageDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    let daysHtml = "";
+    for (let i = 0; i < firstDay; i++) {
+      daysHtml += '<div class="calendar-day other-month"></div>';
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${(month + 1).toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`;
+      const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
+      const daySchedules = schedules.filter((s) => s.schedule_date === dateStr);
+      daysHtml += `
+              <div class="calendar-day ${isToday ? "today" : ""}" onclick="currentPageDate=new Date(${year},${month},${d});openScheduleModal(null,null,'${dateStr}')">
+                  <div class="day-number">${d}</div>
+                  ${daySchedules.slice(0, 3).map((s) => `
+                      <div class="calendar-event meeting">${formatTime12(s.start_time?.substring(0, 5))} ${s.title}</div>
+                  `).join("")}
+                  ${daySchedules.length > 3 ? `<div style="font-size:10px;color:#888">+${daySchedules.length - 3} more</div>` : ""}
+              </div>`;
+    }
     wrapper.innerHTML = `
-        <div class="content-header">
-            <div>
-                <h4>Settings</h4>
-                <div class="subtitle">Manage your account</div>
-            </div>
-        </div>
-        <div class="row g-4">
-            <div class="col-lg-6">
-                <div class="card-premium">
-                    <div class="card-header"><i class="bi bi-person me-2"></i>Profile</div>
-                    <div class="card-body">
-                        <div class="mb-3"><label class="form-label">Name</label><input type="text" class="form-control" value="${currentUser?.fullName || currentUser?.full_name || ""}" disabled></div>
-                        <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" value="${currentUser?.email || ""}" disabled></div>
-                        <div class="mb-3"><label class="form-label">Role</label><input type="text" class="form-control" value="${currentUser?.role?.toUpperCase() || ""}" disabled></div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-6">
-                <div class="card-premium">
-                    <div class="card-header"><i class="bi bi-clock me-2"></i>Working Hours</div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                            <div class="col-6"><label class="form-label">Start</label><input type="time" class="form-control" value="09:00"></div>
-                            <div class="col-6"><label class="form-label">End</label><input type="time" class="form-control" value="18:00"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+          <div class="content-header">
+              <div>
+                  <h4>Calendar</h4>
+                  <div class="subtitle">${monthName}</div>
+              </div>
+              <div class="d-flex gap-2 align-items-center">
+                  <button class="btn btn-outline-forest btn-sm" onclick="changeMonth(-1)"><i class="bi bi-chevron-left"></i></button>
+                  <span class="fw-semibold">${monthName}</span>
+                  <button class="btn btn-outline-forest btn-sm" onclick="changeMonth(1)"><i class="bi bi-chevron-right"></i></button>
+                  <button class="btn btn-gold ms-2" onclick="openScheduleModal()"><i class="bi bi-plus-lg me-1"></i>Add</button>
+              </div>
+          </div>
+          <div class="card-premium p-3">
+              <div class="calendar-grid">
+                  ${dayNames.map((d) => `<div class="calendar-header-cell">${d}</div>`).join("")}
+                  ${daysHtml}
+              </div>
+          </div>
+      `;
+  } catch (err) {
+    wrapper.innerHTML = '<div class="alert alert-danger">Failed to load calendar</div>';
   }
-  document.getElementById("save-schedule-btn")?.addEventListener("click", async () => {
-    const id = document.getElementById("sch-id").value;
-    const data = {
-      title: document.getElementById("sch-title").value,
-      description: document.getElementById("sch-description").value,
-      date: document.getElementById("sch-date").value,
-      startTime: document.getElementById("sch-start").value,
-      endTime: document.getElementById("sch-end").value,
-      scheduleType: document.getElementById("sch-type").value,
-      location: document.getElementById("sch-location").value,
-      participants: document.getElementById("sch-participants").value.split(",").map((s) => s.trim()).filter(Boolean),
-      priority: document.getElementById("sch-priority").value,
-      reminderMinutes: parseInt(document.getElementById("sch-reminder").value),
-      status: document.getElementById("sch-status").value
-    };
-    if (!data.title || !data.date || !data.startTime || !data.endTime) {
-      showToast("Please fill required fields", "warning");
-      return;
-    }
-    try {
-      if (id) {
-        await api.updateSchedule(id, data);
-        showToast("Schedule updated");
-      } else {
-        await api.createSchedule(data);
-        showToast("Schedule created");
-      }
-      bootstrap.Modal.getInstance(document.getElementById("scheduleModal"))?.hide();
-      if (currentPage === "dashboard") renderDashboard();
-      else if (currentPage === "schedule") renderSchedule();
-      else if (currentPage === "calendar") renderCalendar();
-    } catch (err) {
-      if (err.hasConflict) {
-        const alert = document.getElementById("conflict-alert");
-        let slotsHtml = "";
-        if (err.suggestedSlots?.length) {
-          slotsHtml = "<br><strong>Suggested slots:</strong> " + err.suggestedSlots.map((s) => `${formatTime12(s.start_time)} - ${formatTime12(s.end_time)}`).join(", ");
-        }
-        alert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${err.error || "Time conflict detected"}${slotsHtml}`;
-        alert.classList.remove("d-none");
-      } else {
-        showToast(err.error || "Failed to save", "danger");
-      }
-    }
-  });
-  document.getElementById("save-booking-btn")?.addEventListener("click", async () => {
-    const data = {
-      name: document.getElementById("bk-name").value,
-      email: document.getElementById("bk-email").value,
-      company: document.getElementById("bk-company").value,
-      purpose: document.getElementById("bk-purpose").value,
-      date: document.getElementById("bk-date").value,
-      time: document.getElementById("bk-time").value,
-      duration: parseInt(document.getElementById("bk-duration").value),
-      notes: document.getElementById("bk-notes").value,
-      address: document.getElementById("bk-address")?.value || "",
-      place: document.getElementById("bk-place")?.value || "",
-      phone: document.getElementById("bk-phone")?.value || "",
-      visitorType: document.getElementById("bk-visitor-type")?.value || "external",
-      frequency: document.getElementById("bk-frequency")?.value || "once",
-      what: document.getElementById("bk-what")?.value || ""
-    };
-    if (!data.name || !data.email || !data.purpose || !data.date || !data.time) {
-      showToast("Please fill required fields", "warning");
-      return;
-    }
-    try {
-      await api.createBooking(data);
-      showToast("Booking request submitted");
-      bootstrap.Modal.getInstance(document.getElementById("bookingModal"))?.hide();
-      if (currentPage === "bookings") renderBookings();
-    } catch (err) {
-      showToast(err.error || "Failed", "danger");
-    }
-  });
-  document.getElementById("save-reminder-btn")?.addEventListener("click", async () => {
-    const id = document.getElementById("rem-id").value;
-    const data = {
-      title: document.getElementById("rem-title").value,
-      description: document.getElementById("rem-description").value,
-      date: document.getElementById("rem-date").value,
-      time: document.getElementById("rem-time").value,
-      repeatType: document.getElementById("rem-repeat").value,
-      priority: document.getElementById("rem-priority").value
-    };
-    if (!data.title || !data.date || !data.time) {
-      showToast("Please fill required fields", "warning");
-      return;
-    }
-    try {
-      if (id) {
-        await api.updateReminder(id, data);
-        showToast("Reminder updated");
-      } else {
-        await api.createReminder(data);
-        showToast("Reminder created");
-      }
-      bootstrap.Modal.getInstance(document.getElementById("reminderModal"))?.hide();
-      if (currentPage === "reminders") renderReminders();
-    } catch (err) {
-      showToast(err.error || "Failed", "danger");
-    }
-  });
-  document.getElementById("save-task-btn")?.addEventListener("click", async () => {
-    const id = document.getElementById("tsk-id").value;
-    const data = {
-      title: document.getElementById("tsk-title").value,
-      description: document.getElementById("tsk-description").value,
-      dueDate: document.getElementById("tsk-due").value || null,
-      priority: document.getElementById("tsk-priority").value
-    };
-    if (!data.title) {
-      showToast("Please enter a title", "warning");
-      return;
-    }
-    try {
-      if (id) {
-        await api.updateTask(id, data);
-        showToast("Task updated");
-      } else {
-        await api.createTask(data);
-        showToast("Task created");
-      }
-      bootstrap.Modal.getInstance(document.getElementById("taskModal"))?.hide();
-      if (currentPage === "tasks") renderTasks();
-    } catch (err) {
-      showToast(err.error || "Failed", "danger");
-    }
-  });
-  document.getElementById("save-focus-btn")?.addEventListener("click", async () => {
-    const data = {
-      title: document.getElementById("foc-title").value || "Focus Time",
-      date: document.getElementById("foc-date").value,
-      startTime: document.getElementById("foc-start").value,
-      endTime: document.getElementById("foc-end").value
-    };
-    if (!data.date || !data.startTime || !data.endTime) {
-      showToast("Please fill required fields", "warning");
-      return;
-    }
-    try {
-      await api.createFocusSession(data);
-      showToast("Focus time scheduled");
-      bootstrap.Modal.getInstance(document.getElementById("focusModal"))?.hide();
-    } catch (err) {
-      showToast(err.error || "Failed", "danger");
-    }
-  });
-  let notifPollInterval;
-  function startNotifPolling() {
-    updateNotifBadge();
-    notifPollInterval = setInterval(updateNotifBadge, 3e4);
+}
+async function renderAvailability() {
+  const wrapper = document.getElementById("content-wrapper");
+  try {
+    const availability = await api.getAvailability();
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    wrapper.innerHTML = `
+          <div class="content-header">
+              <div>
+                  <h4>Availability</h4>
+                  <div class="subtitle">Manage your available hours</div>
+              </div>
+              <button class="btn btn-gold" onclick="addAvailability()"><i class="bi bi-plus-lg me-1"></i>Add Slot</button>
+          </div>
+          <div class="row g-3">
+              ${days.map((day, i) => {
+      const slots = availability.filter((a) => a.day_of_week === i);
+      return `
+                      <div class="col-md-6 col-lg-4">
+                          <div class="card-premium">
+                              <div class="card-header fw-semibold">${day}</div>
+                              <div class="card-body">
+                                  ${slots.length === 0 ? '<div class="text-muted" style="font-size:12px">No availability set</div>' : slots.map((s) => `
+                                      <div class="d-flex justify-content-between align-items-center mb-2">
+                                          <span style="font-size:13px">${formatTime12(s.start_time?.substring(0, 5))} - ${formatTime12(s.end_time?.substring(0, 5))}</span>
+                                          <span class="badge ${s.is_available ? "bg-success" : "bg-secondary"}">${s.is_available ? "Available" : "Blocked"}</span>
+                                      </div>
+                                  `).join("")}
+                              </div>
+                          </div>
+                      </div>`;
+    }).join("")}
+          </div>
+      `;
+  } catch (err) {
+    wrapper.innerHTML = '<div class="alert alert-danger">Failed to load availability</div>';
   }
-  async function updateNotifBadge() {
-    try {
-      const { count } = await api.getUnreadNotifCount();
-      const badges = document.querySelectorAll("#notif-badge, #mobile-notif-badge");
-      badges.forEach((badge) => {
-        badge.textContent = count.toString();
-        badge.classList.toggle("d-none", count === 0);
-      });
-    } catch {
+}
+async function renderBookings() {
+  const wrapper = document.getElementById("content-wrapper");
+  try {
+    const bookings = await api.getBookings();
+    wrapper.innerHTML = `
+          <div class="content-header">
+              <div>
+                  <h4>Bookings</h4>
+                  <div class="subtitle">Manage booking requests</div>
+              </div>
+              <button class="btn btn-gold" onclick="openBookingModal()"><i class="bi bi-plus-lg me-1"></i>New Booking</button>
+          </div>
+          <div class="d-flex gap-2 mb-3">
+              <button class="btn btn-sm btn-outline-forest active" onclick="filterBookings('all',this)">All</button>
+              <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('pending',this)">Pending</button>
+              <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('accepted',this)">Accepted</button>
+              <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('rejected',this)">Rejected</button>
+          </div>
+          <div class="card-premium">
+              <div class="card-body p-0">
+                  ${bookings.length === 0 ? showEmptyState("bi-calendar-check", "No bookings yet") : `
+                  <div class="table-responsive">
+                      <table class="table table-premium mb-0">
+                          <thead><tr><th>Name</th><th>Company</th><th>Date</th><th>Time</th><th>Purpose</th><th>Status</th><th>Actions</th></tr></thead>
+                          <tbody>
+                              ${bookings.map((b) => `
+                                  <tr data-status="${b.status}">
+                                      <td class="fw-semibold">${b.booked_by_name}</td>
+                                      <td>${b.company || "-"}</td>
+                                      <td>${b.booking_date}</td>
+                                      <td>${formatTime12(b.preferred_time?.substring(0, 5))}</td>
+                                      <td>${b.purpose?.substring(0, 30)}${b.purpose?.length > 30 ? "..." : ""}</td>
+                                      <td><span class="badge ${b.status === "accepted" ? "bg-success" : b.status === "pending" ? "bg-warning" : b.status === "rejected" ? "bg-danger" : "bg-secondary"}">${b.status}</span></td>
+                                      <td>
+                                          ${b.status === "pending" ? `
+                                              <button class="btn btn-sm btn-outline-success me-1" onclick="handleBooking('${b.id}','accepted')"><i class="bi bi-check"></i></button>
+                                              <button class="btn btn-sm btn-outline-danger" onclick="handleBooking('${b.id}','rejected')"><i class="bi bi-x"></i></button>
+                                          ` : ""}
+                                      </td>
+                                  </tr>
+                              `).join("")}
+                          </tbody>
+                      </table>
+                  </div>`}
+              </div>
+          </div>
+      `;
+  } catch (err) {
+    wrapper.innerHTML = '<div class="alert alert-danger">Failed to load bookings</div>';
+  }
+}
+async function renderReminders() {
+  const wrapper = document.getElementById("content-wrapper");
+  try {
+    const reminders = await api.getReminders();
+    wrapper.innerHTML = `
+          <div class="content-header">
+              <div>
+                  <h4>Reminders</h4>
+                  <div class="subtitle">Never miss an important task</div>
+              </div>
+              <button class="btn btn-gold" onclick="openReminderModal()"><i class="bi bi-plus-lg me-1"></i>Add Reminder</button>
+          </div>
+          <div class="card-premium">
+              <div class="card-body">
+                  ${reminders.length === 0 ? showEmptyState("bi-bell", "No reminders") : reminders.map((r) => `
+                      <div class="task-item">
+                          <span class="priority-dot ${r.priority}" style="margin-top:6px"></span>
+                          <div class="task-info flex-grow-1">
+                              <div class="task-title ${r.status === "completed" ? "completed" : ""}">${r.title}</div>
+                              <div class="task-meta">${r.reminder_date} at ${formatTime12(r.reminder_time?.substring(0, 5))} &middot; ${r.repeat_type} &middot; <span class="badge ${r.status === "completed" ? "bg-success" : "bg-warning"}">${r.status}</span></div>
+                          </div>
+                          <div class="d-flex gap-1">
+                              ${r.status !== "completed" ? `<button class="btn btn-sm btn-outline-success" onclick="completeReminder('${r.id}')"><i class="bi bi-check-lg"></i></button>` : ""}
+                              <button class="btn btn-sm btn-outline-forest" onclick="editReminder('${r.id}')"><i class="bi bi-pencil"></i></button>
+                          </div>
+                      </div>
+                  `).join("")}
+              </div>
+          </div>
+      `;
+  } catch (err) {
+    wrapper.innerHTML = '<div class="alert alert-danger">Failed to load reminders</div>';
+  }
+}
+async function renderTasks() {
+  const wrapper = document.getElementById("content-wrapper");
+  try {
+    const [pending, completed, allTasks] = await Promise.all([
+      api.getTasks("pending"),
+      api.getTasks("completed"),
+      api.getTasks()
+    ]);
+    wrapper.innerHTML = `
+          <div class="content-header">
+              <div>
+                  <h4>Tasks</h4>
+                  <div class="subtitle">${pending.length} pending &middot; ${completed.length} completed</div>
+              </div>
+              <button class="btn btn-gold" onclick="openTaskModal()"><i class="bi bi-plus-lg me-1"></i>Add Task</button>
+          </div>
+          <div class="row g-3">
+              <div class="col-lg-8">
+                  <div class="card-premium">
+                      <div class="card-header"><i class="bi bi-list-task me-2"></i>Pending Tasks</div>
+                      <div class="card-body">
+                          ${pending.length === 0 ? showEmptyState("bi-check-circle", "All tasks completed!") : pending.map((t) => `
+                              <div class="task-item">
+                                  <div class="task-check" onclick="completeTask('${t.id}')"></div>
+                                  <div class="task-info flex-grow-1" onclick="editTask('${t.id}')" style="cursor:pointer">
+                                      <div class="task-title">${t.title}</div>
+                                      <div class="task-meta"><span class="priority-dot ${t.priority}"></span> ${t.priority} ${t.due_date ? "&middot; Due " + t.due_date : ""}</div>
+                                  </div>
+                                  <button class="btn btn-sm btn-outline-forest" onclick="editTask('${t.id}')"><i class="bi bi-pencil"></i></button>
+                              </div>
+                          `).join("")}
+                      </div>
+                  </div>
+              </div>
+              <div class="col-lg-4">
+                  <div class="card-premium">
+                      <div class="card-header"><i class="bi bi-check-circle me-2"></i>Completed</div>
+                      <div class="card-body" style="max-height:400px;overflow-y:auto">
+                          ${completed.length === 0 ? showEmptyState("bi-inbox", "No completed tasks") : completed.slice(0, 10).map((t) => `
+                              <div class="task-item">
+                                  <div class="task-check completed"><i class="bi bi-check" style="font-size:11px"></i></div>
+                                  <div class="task-info">
+                                      <div class="task-title completed">${t.title}</div>
+                                      <div class="task-meta">Completed</div>
+                                  </div>
+                                  <button class="btn btn-sm btn-outline-forest" onclick="reopenTask('${t.id}')"><i class="bi bi-arrow-counterclockwise"></i></button>
+                              </div>
+                          `).join("")}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      `;
+  } catch (err) {
+    wrapper.innerHTML = '<div class="alert alert-danger">Failed to load tasks</div>';
+  }
+}
+async function renderNotifications() {
+  const wrapper = document.getElementById("content-wrapper");
+  try {
+    const notifications = await api.getNotifications();
+    wrapper.innerHTML = `
+          <div class="content-header">
+              <div>
+                  <h4>Notifications</h4>
+                  <div class="subtitle">${notifications.filter((n) => !n.is_read).length} unread</div>
+              </div>
+              <button class="btn btn-outline-forest" onclick="markAllRead()"><i class="bi bi-check-all me-1"></i>Mark All Read</button>
+          </div>
+          <div class="card-premium">
+              <div class="card-body p-0">
+                  ${notifications.length === 0 ? showEmptyState("bi-inbox", "No notifications") : notifications.map((n) => `
+                      <div class="notification-item ${!n.is_read ? "unread" : ""}" onclick="markNotifRead('${n.id}',this)">
+                          <div class="notif-title">${n.title}</div>
+                          <div class="notif-message">${n.message}</div>
+                          <div class="notif-time">${new Date(n.created_at).toLocaleString()}</div>
+                      </div>
+                  `).join("")}
+              </div>
+          </div>
+      `;
+  } catch (err) {
+    wrapper.innerHTML = '<div class="alert alert-danger">Failed to load notifications</div>';
+  }
+}
+function renderExcel() {
+  const wrapper = document.getElementById("content-wrapper");
+  wrapper.innerHTML = `
+      <div class="content-header">
+          <div>
+              <h4>Excel Data</h4>
+              <div class="subtitle">Import and export booking data</div>
+          </div>
+          <button class="btn btn-gold" onclick="exportBookingsToExcel()"><i class="bi bi-download me-1"></i>Export Bookings</button>
+      </div>
+      <div class="row g-4">
+          <div class="col-lg-6">
+              <div class="card-premium">
+                  <div class="card-header"><i class="bi bi-upload me-2"></i>Import Excel File</div>
+                  <div class="card-body">
+                      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('excel-file-input').click()">
+                          <i class="bi bi-cloud-arrow-up"></i>
+                          <p class="mb-1 fw-semibold" style="font-size:14px">Click to upload or drag and drop</p>
+                          <p class="mb-0" style="font-size:12px;color:var(--text-muted)">Supports .xlsx, .xls, .csv files</p>
+                      </div>
+                      <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadExcel()">
+                      <button class="btn btn-forest w-100 mt-3" onclick="uploadExcel()"><i class="bi bi-upload me-1"></i>Upload File</button>
+                  </div>
+              </div>
+          </div>
+          <div class="col-lg-6">
+              <div class="card-premium">
+                  <div class="card-header"><i class="bi bi-file-earmark-check me-2"></i>Uploaded Files</div>
+                  <div class="card-body" id="excel-file-list">
+                      <div class="empty-state"><i class="bi bi-inbox"></i><p>No files uploaded yet</p></div>
+                  </div>
+              </div>
+          </div>
+      </div>
+  `;
+  const zone = document.getElementById("upload-zone");
+  if (zone) {
+    zone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      zone.classList.add("dragover");
+    });
+    zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+    zone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      zone.classList.remove("dragover");
+      const input = document.getElementById("excel-file-input");
+      if (e.dataTransfer?.files.length) {
+        input.files = e.dataTransfer.files;
+        uploadExcel();
+      }
+    });
+  }
+}
+function renderSettings() {
+  const wrapper = document.getElementById("content-wrapper");
+  wrapper.innerHTML = `
+      <div class="content-header">
+          <div>
+              <h4>Settings</h4>
+              <div class="subtitle">Manage your account</div>
+          </div>
+      </div>
+      <div class="row g-4">
+          <div class="col-lg-6">
+              <div class="card-premium">
+                  <div class="card-header"><i class="bi bi-person me-2"></i>Profile</div>
+                  <div class="card-body">
+                      <div class="mb-3"><label class="form-label">Name</label><input type="text" class="form-control" value="${currentUser?.fullName || currentUser?.full_name || ""}" disabled></div>
+                      <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" value="${currentUser?.email || ""}" disabled></div>
+                      <div class="mb-3"><label class="form-label">Role</label><input type="text" class="form-control" value="${currentUser?.role?.toUpperCase() || ""}" disabled></div>
+                  </div>
+              </div>
+          </div>
+          <div class="col-lg-6">
+              <div class="card-premium">
+                  <div class="card-header"><i class="bi bi-clock me-2"></i>Working Hours</div>
+                  <div class="card-body">
+                      <div class="row g-3">
+                          <div class="col-6"><label class="form-label">Start</label><input type="time" class="form-control" value="09:00"></div>
+                          <div class="col-6"><label class="form-label">End</label><input type="time" class="form-control" value="18:00"></div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
+  `;
+}
+document.getElementById("save-schedule-btn")?.addEventListener("click", async () => {
+  const id = document.getElementById("sch-id").value;
+  const data = {
+    title: document.getElementById("sch-title").value,
+    description: document.getElementById("sch-description").value,
+    date: document.getElementById("sch-date").value,
+    startTime: document.getElementById("sch-start").value,
+    endTime: document.getElementById("sch-end").value,
+    scheduleType: document.getElementById("sch-type").value,
+    location: document.getElementById("sch-location").value,
+    participants: document.getElementById("sch-participants").value.split(",").map((s) => s.trim()).filter(Boolean),
+    priority: document.getElementById("sch-priority").value,
+    reminderMinutes: parseInt(document.getElementById("sch-reminder").value),
+    status: document.getElementById("sch-status").value
+  };
+  if (!data.title || !data.date || !data.startTime || !data.endTime) {
+    showToast("Please fill required fields", "warning");
+    return;
+  }
+  try {
+    if (id) {
+      await api.updateSchedule(id, data);
+      showToast("Schedule updated");
+    } else {
+      await api.createSchedule(data);
+      showToast("Schedule created");
+    }
+    bootstrap.Modal.getInstance(document.getElementById("scheduleModal"))?.hide();
+    if (currentPage === "dashboard") renderDashboard();
+    else if (currentPage === "schedule") renderSchedule();
+    else if (currentPage === "calendar") renderCalendar();
+  } catch (err) {
+    if (err.hasConflict) {
+      const alert = document.getElementById("conflict-alert");
+      let slotsHtml = "";
+      if (err.suggestedSlots?.length) {
+        slotsHtml = "<br><strong>Suggested slots:</strong> " + err.suggestedSlots.map((s) => `${formatTime12(s.start_time)} - ${formatTime12(s.end_time)}`).join(", ");
+      }
+      alert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${err.error || "Time conflict detected"}${slotsHtml}`;
+      alert.classList.remove("d-none");
+    } else {
+      showToast(err.error || "Failed to save", "danger");
     }
   }
-})();
+});
+document.getElementById("save-booking-btn")?.addEventListener("click", async () => {
+  const data = {
+    name: document.getElementById("bk-name").value,
+    email: document.getElementById("bk-email").value,
+    company: document.getElementById("bk-company").value,
+    purpose: document.getElementById("bk-purpose").value,
+    date: document.getElementById("bk-date").value,
+    time: document.getElementById("bk-time").value,
+    duration: parseInt(document.getElementById("bk-duration").value),
+    notes: document.getElementById("bk-notes").value,
+    address: document.getElementById("bk-address")?.value || "",
+    place: document.getElementById("bk-place")?.value || "",
+    phone: document.getElementById("bk-phone")?.value || "",
+    visitorType: document.getElementById("bk-visitor-type")?.value || "external",
+    frequency: document.getElementById("bk-frequency")?.value || "once",
+    what: document.getElementById("bk-what")?.value || ""
+  };
+  if (!data.name || !data.email || !data.purpose || !data.date || !data.time) {
+    showToast("Please fill required fields", "warning");
+    return;
+  }
+  try {
+    await api.createBooking(data);
+    showToast("Booking request submitted");
+    bootstrap.Modal.getInstance(document.getElementById("bookingModal"))?.hide();
+    if (currentPage === "bookings") renderBookings();
+  } catch (err) {
+    showToast(err.error || "Failed", "danger");
+  }
+});
+document.getElementById("save-reminder-btn")?.addEventListener("click", async () => {
+  const id = document.getElementById("rem-id").value;
+  const data = {
+    title: document.getElementById("rem-title").value,
+    description: document.getElementById("rem-description").value,
+    date: document.getElementById("rem-date").value,
+    time: document.getElementById("rem-time").value,
+    repeatType: document.getElementById("rem-repeat").value,
+    priority: document.getElementById("rem-priority").value
+  };
+  if (!data.title || !data.date || !data.time) {
+    showToast("Please fill required fields", "warning");
+    return;
+  }
+  try {
+    if (id) {
+      await api.updateReminder(id, data);
+      showToast("Reminder updated");
+    } else {
+      await api.createReminder(data);
+      showToast("Reminder created");
+    }
+    bootstrap.Modal.getInstance(document.getElementById("reminderModal"))?.hide();
+    if (currentPage === "reminders") renderReminders();
+  } catch (err) {
+    showToast(err.error || "Failed", "danger");
+  }
+});
+document.getElementById("save-task-btn")?.addEventListener("click", async () => {
+  const id = document.getElementById("tsk-id").value;
+  const data = {
+    title: document.getElementById("tsk-title").value,
+    description: document.getElementById("tsk-description").value,
+    dueDate: document.getElementById("tsk-due").value || null,
+    priority: document.getElementById("tsk-priority").value
+  };
+  if (!data.title) {
+    showToast("Please enter a title", "warning");
+    return;
+  }
+  try {
+    if (id) {
+      await api.updateTask(id, data);
+      showToast("Task updated");
+    } else {
+      await api.createTask(data);
+      showToast("Task created");
+    }
+    bootstrap.Modal.getInstance(document.getElementById("taskModal"))?.hide();
+    if (currentPage === "tasks") renderTasks();
+  } catch (err) {
+    showToast(err.error || "Failed", "danger");
+  }
+});
+document.getElementById("save-focus-btn")?.addEventListener("click", async () => {
+  const data = {
+    title: document.getElementById("foc-title").value || "Focus Time",
+    date: document.getElementById("foc-date").value,
+    startTime: document.getElementById("foc-start").value,
+    endTime: document.getElementById("foc-end").value
+  };
+  if (!data.date || !data.startTime || !data.endTime) {
+    showToast("Please fill required fields", "warning");
+    return;
+  }
+  try {
+    await api.createFocusSession(data);
+    showToast("Focus time scheduled");
+    bootstrap.Modal.getInstance(document.getElementById("focusModal"))?.hide();
+  } catch (err) {
+    showToast(err.error || "Failed", "danger");
+  }
+});
+let notifPollInterval;
+function startNotifPolling() {
+  updateNotifBadge();
+  notifPollInterval = setInterval(updateNotifBadge, 3e4);
+}
+async function updateNotifBadge() {
+  try {
+    const { count } = await api.getUnreadNotifCount();
+    const badges = document.querySelectorAll("#notif-badge, #mobile-notif-badge");
+    badges.forEach((badge) => {
+      badge.textContent = count.toString();
+      badge.classList.toggle("d-none", count === 0);
+    });
+  } catch {
+  }
+}
+// end
