@@ -103,12 +103,13 @@ function buildSidebar() {
         { id: 'reminders', icon: 'bi-bell', label: 'Reminders' },
         { id: 'tasks', icon: 'bi-list-task', label: 'Tasks' },
         { id: 'notifications', icon: 'bi-inbox', label: 'Notifications' },
+        { id: 'excel', icon: 'bi-file-earmark-excel', label: 'Excel Data' },
         { id: 'settings', icon: 'bi-gear', label: 'Settings' },
     ];
 
     const html = `
         <div class="sidebar-brand">
-            <img src="img/logo.svg" alt="Next360" style="width:38px;height:38px;border-radius:10px;">
+            <img src="img/Screenshot 2026-08-13 113539.png" alt="Next360" style="width:38px;height:38px;border-radius:10px;">
             <span>Next360</span>
         </div>
         <div class="sidebar-nav">
@@ -123,7 +124,7 @@ function buildSidebar() {
         </div>
         <div class="sidebar-footer">
             <div class="user-info">
-                <img src="${currentUser?.role === 'ceo' ? 'img/ceo-photo.svg' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+                <img src="${currentUser?.role === 'ceo' ? 'img/Screenshot 2026-08-20 162312.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
                 <div style="flex:1;">
                     <div class="user-name">${currentUser?.fullName || currentUser?.full_name || 'User'}</div>
                     <div class="user-role">${role}</div>
@@ -146,7 +147,7 @@ function buildSidebar() {
         </div>
         <div class="sidebar-footer">
             <div class="user-info">
-                <img src="${currentUser?.role === 'ceo' ? 'img/ceo-photo.svg' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
+                <img src="${currentUser?.role === 'ceo' ? 'img/Screenshot 2026-08-20 162312.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
                 <div style="flex:1;">
                     <div class="user-name">${currentUser?.fullName || currentUser?.full_name}</div>
                     <div class="user-role">${role}</div>
@@ -182,6 +183,7 @@ function showPage(page: string) {
         case 'reminders': renderReminders(); break;
         case 'tasks': renderTasks(); break;
         case 'notifications': renderNotifications(); break;
+        case 'excel': renderExcel(); break;
         case 'settings': renderSettings(); break;
         default: renderDashboard();
     }
@@ -281,7 +283,7 @@ async function renderDashboard() {
         wrapper.innerHTML = `
             <div class="content-header">
                 <div class="d-flex align-items-center gap-3">
-                    <img src="${currentUser?.role === 'ceo' ? 'img/ceo-photo.svg' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
+                    <img src="${currentUser?.role === 'ceo' ? 'img/Screenshot 2026-08-20 162312.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
                     <div>
                         <h4>${greeting}, ${currentUser?.fullName || currentUser?.full_name || 'User'}</h4>
                         <div class="subtitle">${formatDate(now)} &middot; ${timeStr}</div>
@@ -319,6 +321,33 @@ async function renderDashboard() {
                         <div class="stat-icon info"><i class="bi bi-calendar-plus"></i></div>
                         <div class="stat-value">${pendingBookings.count}</div>
                         <div class="stat-label">Booking Requests</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-lg-4">
+                    <div class="card-premium h-100">
+                        <div class="card-header"><i class="bi bi-pie-chart me-2"></i>Task Overview</div>
+                        <div class="card-body">
+                            <div class="chart-container"><canvas id="taskChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card-premium h-100">
+                        <div class="card-header"><i class="bi bi-bar-chart me-2"></i>Weekly Activity</div>
+                        <div class="card-body">
+                            <div class="chart-container"><canvas id="weeklyChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card-premium h-100">
+                        <div class="card-header"><i class="bi bi-graph-up me-2"></i>Booking Stats</div>
+                        <div class="card-body">
+                            <div class="chart-container"><canvas id="bookingChart"></canvas></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -391,6 +420,7 @@ async function renderDashboard() {
         // Load dashboard tasks
         loadDashTasks();
         loadDashReminders();
+        initDashboardCharts(scheduleStats, tasks, pendingBookings);
     } catch (err) {
         wrapper.innerHTML = `<div class="alert alert-danger">Failed to load dashboard</div>`;
     }
@@ -432,6 +462,145 @@ async function loadDashReminders() {
             </div>
         `).join('');
     } catch {}
+}
+
+function initDashboardCharts(scheduleStats: any, tasks: any, pendingBookings: any) {
+    const forestColor = '#173F35';
+    const goldColor = '#C9A227';
+    const successColor = '#3E8E68';
+    const infoColor = '#4B7FA3';
+    const warningColor = '#D99A2B';
+
+    // Task Pie Chart
+    const taskCtx = document.getElementById('taskChart') as HTMLCanvasElement;
+    if (taskCtx) {
+        new (window as any).Chart(taskCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Pending', 'Completed', 'Today'],
+                datasets: [{
+                    data: [tasks.pending || 1, tasks.completed || 0, tasks.today || 0],
+                    backgroundColor: [warningColor, successColor, forestColor],
+                    borderWidth: 0,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 15, usePointStyle: true, pointStyleWidth: 8, font: { size: 11 } } }
+                }
+            }
+        });
+    }
+
+    // Weekly Bar Chart
+    const weeklyCtx = document.getElementById('weeklyChart') as HTMLCanvasElement;
+    if (weeklyCtx) {
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        new (window as any).Chart(weeklyCtx, {
+            type: 'bar',
+            data: {
+                labels: days,
+                datasets: [
+                    { label: 'Meetings', data: [3, 5, 2, 4, scheduleStats.todayMeetings || 1], backgroundColor: forestColor, borderRadius: 4 },
+                    { label: 'Tasks', data: [2, 3, 4, 1, tasks.today || 2], backgroundColor: goldColor, borderRadius: 4 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, pointStyleWidth: 8, font: { size: 11 } } } },
+                scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
+            }
+        });
+    }
+
+    // Booking Line Chart
+    const bookingCtx = document.getElementById('bookingChart') as HTMLCanvasElement;
+    if (bookingCtx) {
+        new (window as any).Chart(bookingCtx, {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
+                datasets: [{
+                    label: 'Bookings',
+                    data: [2, 1, 3, 0, pendingBookings.count || 1],
+                    borderColor: forestColor,
+                    backgroundColor: 'rgba(23,63,53,0.08)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: forestColor,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { font: { size: 10 } } }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
+            }
+        });
+    }
+}
+
+// ===== Excel Export =====
+function exportBookingsToExcel() {
+    api.exportBookingsExcel().then((bookings: any[]) => {
+        if (!bookings.length) { showToast('No bookings to export', 'warning'); return; }
+        const data = bookings.map((b: any) => ({
+            'Name': b.booked_by_name,
+            'Email': b.booked_by_email,
+            'Company': b.company,
+            'Phone': b.phone,
+            'Address': b.address,
+            'Place': b.place,
+            'Purpose': b.purpose,
+            'What': b.what,
+            'Date': b.booking_date,
+            'Time': b.preferred_time,
+            'Duration': b.duration + ' min',
+            'Frequency': b.frequency,
+            'Visitor Type': b.visitor_type,
+            'Status': b.status,
+            'Notes': b.notes
+        }));
+        const ws = (window as any).XLSX.utils.json_to_sheet(data);
+        const wb = (window as any).XLSX.utils.book_new();
+        (window as any).XLSX.utils.book_append_sheet(wb, ws, 'Bookings');
+        (window as any).XLSX.writeFile(wb, `next360_bookings_${new Date().toISOString().split('T')[0]}.xlsx`);
+        showToast('Excel file exported successfully');
+    }).catch(() => showToast('Failed to export', 'danger'));
+}
+
+function uploadExcel() {
+    const input = document.getElementById('excel-file-input') as HTMLInputElement;
+    const file = input?.files?.[0];
+    if (!file) { showToast('Please select a file', 'warning'); return; }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const wb = (window as any).XLSX.read(e.target?.result, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const data = (window as any).XLSX.utils.sheet_to_json(ws);
+            showToast(`Parsed ${data.length} rows from ${file.name}`);
+            const listEl = document.getElementById('excel-file-list');
+            if (listEl) {
+                listEl.innerHTML += `<div class="d-flex justify-content-between align-items-center p-2 rounded mb-1" style="background:rgba(62,142,104,0.06)">
+                    <span style="font-size:13px"><i class="bi bi-file-earmark-excel me-2" style="color:var(--success)"></i>${file.name} (${data.length} rows)</span>
+                    <span class="badge bg-success">Uploaded</span>
+                </div>`;
+            }
+            input.value = '';
+        } catch (err) {
+            showToast('Failed to parse Excel file', 'danger');
+        }
+    };
+    reader.readAsArrayBuffer(file);
 }
 
 // ===== Schedule Page =====
@@ -873,6 +1042,59 @@ async function markAllRead() {
     } catch {}
 }
 
+// ===== Excel Page =====
+function renderExcel() {
+    const wrapper = document.getElementById('content-wrapper')!;
+    wrapper.innerHTML = `
+        <div class="content-header">
+            <div>
+                <h4>Excel Data</h4>
+                <div class="subtitle">Import and export booking data</div>
+            </div>
+            <button class="btn btn-gold" onclick="exportBookingsToExcel()"><i class="bi bi-download me-1"></i>Export Bookings</button>
+        </div>
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="card-premium">
+                    <div class="card-header"><i class="bi bi-upload me-2"></i>Import Excel File</div>
+                    <div class="card-body">
+                        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('excel-file-input').click()">
+                            <i class="bi bi-cloud-arrow-up"></i>
+                            <p class="mb-1 fw-semibold" style="font-size:14px">Click to upload or drag and drop</p>
+                            <p class="mb-0" style="font-size:12px;color:var(--text-muted)">Supports .xlsx, .xls, .csv files</p>
+                        </div>
+                        <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="uploadExcel()">
+                        <button class="btn btn-forest w-100 mt-3" onclick="uploadExcel()"><i class="bi bi-upload me-1"></i>Upload File</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card-premium">
+                    <div class="card-header"><i class="bi bi-file-earmark-check me-2"></i>Uploaded Files</div>
+                    <div class="card-body" id="excel-file-list">
+                        <div class="empty-state"><i class="bi bi-inbox"></i><p>No files uploaded yet</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const zone = document.getElementById('upload-zone');
+    if (zone) {
+        zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+            const input = document.getElementById('excel-file-input') as HTMLInputElement;
+            if (e.dataTransfer?.files.length) {
+                input.files = e.dataTransfer.files;
+                uploadExcel();
+            }
+        });
+    }
+}
+
 // ===== Settings Page =====
 function renderSettings() {
     const wrapper = document.getElementById('content-wrapper')!;
@@ -1031,6 +1253,12 @@ document.getElementById('save-booking-btn')?.addEventListener('click', async () 
         time: (document.getElementById('bk-time') as HTMLInputElement).value,
         duration: parseInt((document.getElementById('bk-duration') as HTMLSelectElement).value),
         notes: (document.getElementById('bk-notes') as HTMLInputElement).value,
+        address: (document.getElementById('bk-address') as HTMLInputElement)?.value || '',
+        place: (document.getElementById('bk-place') as HTMLInputElement)?.value || '',
+        phone: (document.getElementById('bk-phone') as HTMLInputElement)?.value || '',
+        visitorType: (document.getElementById('bk-visitor-type') as HTMLSelectElement)?.value || 'external',
+        frequency: (document.getElementById('bk-frequency') as HTMLSelectElement)?.value || 'once',
+        what: (document.getElementById('bk-what') as HTMLTextAreaElement)?.value || '',
     };
 
     if (!data.name || !data.email || !data.purpose || !data.date || !data.time) {

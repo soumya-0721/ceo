@@ -14,7 +14,7 @@ class TaskService {
             query += ' AND t.status=$2';
             params.push(status);
         }
-        query += ' ORDER BY CASE t.priority WHEN urgent THEN 1 WHEN high THEN 2 WHEN medium THEN 3 ELSE 4 END, t.due_date';
+        query += " ORDER BY CASE t.priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END, t.due_date";
         const result = await database_1.default.query(query, params);
         return result.rows;
     }

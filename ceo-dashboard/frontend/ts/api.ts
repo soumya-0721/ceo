@@ -117,6 +117,18 @@ class ApiService {
     // Audit
     getAuditLogs(limit?: number) { return this.get<any[]>(`/audit${limit ? `?limit=${limit}` : ''}`); }
     getAuditByRecord(recordType: string, recordId: string) { return this.get<any[]>(`/audit/${recordType}/${recordId}`); }
+
+    // Public Booking (no auth)
+    createPublicBooking(data: any) {
+        return fetch('/api/bookings/public', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }).then(r => r.json());
+    }
+
+    // Excel
+    exportBookingsExcel() { return this.get<any[]>('/bookings/export'); }
 }
 
 const api = new ApiService();

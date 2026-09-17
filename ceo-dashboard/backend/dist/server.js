@@ -38,10 +38,21 @@ app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 app.get('*', (_req, res) => {
-    res.sendFile(path_1.default.join(__dirname, '../../frontend/index.html'));
+    if (_req.path.includes('.')) {
+        res.status(404).send('Not found');
+    }
+    else {
+        res.sendFile(path_1.default.join(__dirname, '../../frontend/index.html'));
+    }
 });
 app.use(errorHandler_1.errorHandler);
 app.use(errorHandler_1.notFoundHandler);
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception:', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('Unhandled Rejection:', reason?.message || reason);
+});
 app.listen(PORT, () => {
     console.log(`Next360 CEO Command Center running on http://localhost:${PORT}`);
 });

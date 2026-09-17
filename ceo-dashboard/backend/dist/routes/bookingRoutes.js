@@ -7,6 +7,26 @@ const notificationService_1 = require("../services/notificationService");
 const auditService_1 = require("../services/auditService");
 const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
+// Public booking route - no auth required
+router.post('/public', async (req, res) => {
+    try {
+        const { name, email, company, purpose, date, time, duration, notes, address, place, frequency, what, phone, visitorType } = req.body;
+        if (!name || !email || !purpose || !date || !time) {
+            res.status(400).json({ error: 'Required fields missing' });
+            return;
+        }
+        const booking = await bookingService_1.bookingService.create({
+            name, email, company, purpose, date, time,
+            duration: duration || 30, notes, address, place,
+            frequency, what, phone, visitorType: visitorType || 'external',
+            userId: null
+        });
+        res.status(201).json({ message: 'Booking request submitted successfully', booking });
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Failed to create booking' });
+    }
+});
 router.use(auth_1.authenticateToken);
 router.get('/', async (req, res) => {
     try {
@@ -16,6 +36,16 @@ router.get('/', async (req, res) => {
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to get bookings' });
+    }
+});
+router.get('/export', async (_req, res) => {
+    try {
+        const bookings = await bookingService_1.bookingService.getAll();
+        res.setHeader('Content-Disposition', 'attachment; filename=bookings.xlsx');
+        res.json(bookings);
+    }
+    catch (error) {
+        res.status(500).json({ error: 'Failed to export bookings' });
     }
 });
 router.get('/pending-count', async (_req, res) => {
@@ -42,14 +72,15 @@ router.get('/:id', async (req, res) => {
 });
 router.post('/', async (req, res) => {
     try {
-        const { name, email, company, purpose, date, time, duration, notes } = req.body;
+        const { name, email, company, purpose, date, time, duration, notes, address, place, frequency, what, phone, visitorType } = req.body;
         if (!name || !email || !purpose || !date || !time) {
             res.status(400).json({ error: 'Required fields missing' });
             return;
         }
         const booking = await bookingService_1.bookingService.create({
             name, email, company, purpose, date, time,
-            duration: duration || 30, notes, userId: req.user.id
+            duration: duration || 30, notes, address, place,
+            frequency, what, phone, visitorType, userId: req.user.id
         });
         await auditService_1.auditService.log({
             userId: req.user.id, action: 'created', recordType: 'booking',

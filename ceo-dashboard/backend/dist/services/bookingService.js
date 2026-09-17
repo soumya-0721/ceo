@@ -25,9 +25,11 @@ class BookingService {
     }
     async create(data) {
         const result = await database_1.default.query(`INSERT INTO bookings (booked_by_name, booked_by_email, company, purpose,
-             booking_date, preferred_time, duration, status, notes, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9) RETURNING *`, [data.name, data.email, data.company, data.purpose,
-            data.date, data.time, data.duration, data.notes, data.userId]);
+             booking_date, preferred_time, duration, status, notes, created_by,
+             address, place, frequency, what, phone, visitor_type)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`, [data.name, data.email, data.company, data.purpose,
+            data.date, data.time, data.duration, data.notes, data.userId,
+            data.address, data.place, data.frequency, data.what, data.phone, data.visitorType]);
         return result.rows[0];
     }
     async updateStatus(id, status, handledBy) {

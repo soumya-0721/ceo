@@ -66,6 +66,12 @@ CREATE TABLE bookings (
     notes TEXT,
     created_by UUID REFERENCES users(id),
     handled_by UUID REFERENCES users(id),
+    address TEXT,
+    place VARCHAR(200),
+    frequency VARCHAR(50) DEFAULT 'once',
+    what TEXT,
+    phone VARCHAR(20),
+    visitor_type VARCHAR(50) DEFAULT 'external',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -145,6 +151,17 @@ CREATE TABLE audit_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Excel data uploads table
+CREATE TABLE excel_data (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    filename VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    row_count INTEGER DEFAULT 0,
+    status VARCHAR(30) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX idx_schedules_date ON schedules(schedule_date);
 CREATE INDEX idx_schedules_user ON schedules(user_id);
@@ -161,8 +178,9 @@ CREATE INDEX idx_notifications_read ON notifications(is_read);
 CREATE INDEX idx_focus_user ON focus_sessions(user_id);
 CREATE INDEX idx_audit_user ON audit_logs(user_id);
 CREATE INDEX idx_audit_record ON audit_logs(record_type, record_id);
+CREATE INDEX idx_excel_data_user ON excel_data(user_id);
 
 -- Insert default users (passwords: ceo123, soumya123 - bcrypt hashed)
 INSERT INTO users (username, password_hash, full_name, email, role) VALUES
-('ceo', '$2b$10$YourHashedPasswordHere1', 'CEO', 'ceo@next360.com', 'ceo'),
-('soumya', '$2b$10$YourHashedPasswordHere2', 'Soumya', 'soumya@next360.com', 'coordinator');
+('ceo', '$2a$10$XFE/UQEHkPKQSaRJAmBdYOSbGfHMLnMpRMaWsJn0rRZxQ8JtqYZ6C', 'Samhith', 'samhith@next360.com', 'ceo'),
+('soumya', '$2a$10$XFE/UQEHkPKQSaRJAmBdYOSbGfHMLnMpRMaWsJn0rRZxQ8JtqYZ6C', 'Soumya', 'soumya@next360.com', 'coordinator');
