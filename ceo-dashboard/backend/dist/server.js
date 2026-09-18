@@ -24,7 +24,10 @@ const PORT = parseInt(process.env.PORT || '3000');
 app.use((0, cors_1.default)({ origin: true, credentials: true }));
 app.use(express_1.default.json());
 app.use((0, cookie_parser_1.default)());
-app.use(express_1.default.static(path_1.default.join(__dirname, '../../frontend')));
+const staticPath = process.env.VERCEL
+    ? path_1.default.join(process.cwd(), 'ceo-dashboard/frontend')
+    : path_1.default.join(__dirname, '../../frontend');
+app.use(express_1.default.static(staticPath));
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/schedules', scheduleRoutes_1.default);
 app.use('/api/availability', availabilityRoutes_1.default);
@@ -42,7 +45,7 @@ app.get('*', (_req, res) => {
         res.status(404).send('Not found');
     }
     else {
-        res.sendFile(path_1.default.join(__dirname, '../../frontend/index.html'));
+        res.sendFile(path_1.default.join(staticPath, 'index.html'));
     }
 });
 app.use(errorHandler_1.errorHandler);
@@ -53,7 +56,10 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
     console.error('Unhandled Rejection:', reason?.message || reason);
 });
-app.listen(PORT, () => {
-    console.log(`Next360 CEO Command Center running on http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Next360 CEO Command Center running on http://localhost:${PORT}`);
+    });
+}
+exports.default = app;
 //# sourceMappingURL=server.js.map

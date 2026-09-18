@@ -6,7 +6,7 @@ tags:
 - git
 - pattern
 created: 2026-09-17
-updated: 2026-09-17
+updated: 2026-09-18
 filenames:
 - ceo-dashboard/backend/dist/routes/bookingRoutes.js
 - ceo-dashboard/backend/dist/routes/bookingRoutes.js.map
@@ -15,7 +15,7 @@ kind: pattern
 status: proposed
 superseded_by: null
 deprecated_at: null
-review_after: 2026-09-17
+review_after: 2026-09-18
 source_chat_id: null
 created_at: 2026-09-17T07:22:34.777466800+00:00
 summary: null

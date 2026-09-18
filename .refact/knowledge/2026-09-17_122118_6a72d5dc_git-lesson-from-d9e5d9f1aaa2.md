@@ -5,7 +5,7 @@ tags:
 - git
 - lesson
 created: 2026-09-17
-updated: 2026-09-17
+updated: 2026-09-18
 filenames:
 - ceo-dashboard/frontend/ts/api.js
 - ceo-dashboard/frontend/ts/app.js
@@ -14,7 +14,7 @@ kind: lesson
 status: proposed
 superseded_by: null
 deprecated_at: null
-review_after: 2026-09-17
+review_after: 2026-09-18
 source_chat_id: null
 created_at: 2026-09-17T06:51:18.126916100+00:00
 summary: null

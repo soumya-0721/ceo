@@ -1,0 +1,10 @@
+{
+  "name": "ceo-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd ceo-dashboard/backend && npm install && npm run build",
+    "start": "cd ceo-dashboard/backend && node dist/server.js",
+    "dev": "cd ceo-dashboard/backend && npm run dev"
+  }
+}

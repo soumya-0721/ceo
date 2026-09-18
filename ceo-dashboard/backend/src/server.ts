@@ -24,7 +24,11 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-app.use(express.static(path.join(__dirname, '../../frontend')));
+const staticPath = process.env.VERCEL
+    ? path.join(process.cwd(), 'ceo-dashboard/frontend')
+    : path.join(__dirname, '../../frontend');
+
+app.use(express.static(staticPath));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/schedules', scheduleRoutes);
@@ -44,7 +48,7 @@ app.get('*', (_req, res) => {
     if (_req.path.includes('.')) {
         res.status(404).send('Not found');
     } else {
-        res.sendFile(path.join(__dirname, '../../frontend/index.html'));
+        res.sendFile(path.join(staticPath, 'index.html'));
     }
 });
 
@@ -58,6 +62,10 @@ process.on('unhandledRejection', (reason: any) => {
     console.error('Unhandled Rejection:', reason?.message || reason);
 });
 
-app.listen(PORT, () => {
-    console.log(`Next360 CEO Command Center running on http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`Next360 CEO Command Center running on http://localhost:${PORT}`);
+    });
+}
+
+export default app;
