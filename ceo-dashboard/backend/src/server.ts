@@ -25,7 +25,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 const staticPath = process.env.VERCEL
-    ? path.join(process.cwd(), 'ceo-dashboard/frontend')
+    ? path.join(process.cwd(), 'public')
     : path.join(__dirname, '../../frontend');
 
 app.use(express.static(staticPath));

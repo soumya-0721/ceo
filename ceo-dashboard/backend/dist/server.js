@@ -25,7 +25,7 @@ app.use((0, cors_1.default)({ origin: true, credentials: true }));
 app.use(express_1.default.json());
 app.use((0, cookie_parser_1.default)());
 const staticPath = process.env.VERCEL
-    ? path_1.default.join(process.cwd(), 'ceo-dashboard/frontend')
+    ? path_1.default.join(process.cwd(), 'public')
     : path_1.default.join(__dirname, '../../frontend');
 app.use(express_1.default.static(staticPath));
 app.use('/api/auth', authRoutes_1.default);
