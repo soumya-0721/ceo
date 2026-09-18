@@ -122,6 +122,9 @@ function buildSidebar() {
                 </div>
             `).join('')}
         </div>
+        <div class="sidebar-decoration">
+            <div class="deco-text">"Better Decisions for a Healthier Tomorrow"</div>
+        </div>
         <div class="sidebar-footer">
             <div class="user-info">
                 <img src="${currentUser?.role === 'ceo' ? 'img/Screenshot 2026-08-20 162312.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
@@ -283,43 +286,45 @@ async function renderDashboard() {
         }
 
         wrapper.innerHTML = `
-            <div class="content-header">
-                <div class="d-flex align-items-center gap-3">
-                    <img src="${currentUser?.role === 'ceo' ? 'img/Screenshot 2026-08-20 162312.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid var(--border);">
+            <div class="hero-banner">
+                <div class="hero-top">
                     <div>
-                        <h4>${greeting}, ${currentUser?.fullName || currentUser?.full_name || 'User'}</h4>
-                        <div class="subtitle">${formatDate(now)} &middot; ${timeStr}</div>
+                        <div class="hero-date-badge"><i class="bi bi-calendar3"></i> Today</div>
+                        <div class="hero-title">${greeting}, ${currentUser?.fullName || currentUser?.full_name || 'User'}</div>
+                        <div class="hero-subtitle">${formatDate(now)} &middot; ${timeStr}</div>
                     </div>
+                    <div class="hero-quote"><p>Small steps today, big impact tomorrow</p></div>
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    ${statusHtml}
+                <div class="hero-actions">
+                    <button class="btn-hero btn-hero-search" onclick="openFindTimeModal()"><i class="bi bi-search"></i> Find Time</button>
+                    <button class="btn-hero btn-hero-add" onclick="openScheduleModal()"><i class="bi bi-plus-lg"></i> Add Schedule</button>
                 </div>
             </div>
 
             <div class="row g-3 mb-4 fade-in">
                 <div class="col-6 col-lg-3">
-                    <div class="stat-card">
+                    <div class="stat-card forest-card">
                         <div class="stat-icon forest"><i class="bi bi-calendar-event"></i></div>
                         <div class="stat-value">${scheduleStats.todayMeetings}</div>
                         <div class="stat-label">Today's Meetings</div>
                     </div>
                 </div>
                 <div class="col-6 col-lg-3">
-                    <div class="stat-card">
+                    <div class="stat-card success-card">
                         <div class="stat-icon success"><i class="bi bi-clock"></i></div>
                         <div class="stat-value">${scheduleStats.freeTimeFormatted}</div>
                         <div class="stat-label">Available Time</div>
                     </div>
                 </div>
                 <div class="col-6 col-lg-3">
-                    <div class="stat-card">
+                    <div class="stat-card gold-card">
                         <div class="stat-icon warning"><i class="bi bi-list-task"></i></div>
                         <div class="stat-value">${tasks.pending}</div>
                         <div class="stat-label">Pending Tasks</div>
                     </div>
                 </div>
                 <div class="col-6 col-lg-3">
-                    <div class="stat-card">
+                    <div class="stat-card info-card">
                         <div class="stat-icon info"><i class="bi bi-calendar-plus"></i></div>
                         <div class="stat-value">${pendingBookings.count}</div>
                         <div class="stat-label">Booking Requests</div>
