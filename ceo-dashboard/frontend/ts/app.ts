@@ -338,8 +338,8 @@ function buildSidebar() {
                     <div class="user-name">${currentUser?.fullName || currentUser?.full_name || 'User'}</div>
                     <div class="user-role">${role}</div>
                 </div>
-                <button class="btn btn-link p-0" onclick="handleLogout()" title="Logout" style="color:var(--text-muted);">
-                    <i class="bi bi-box-arrow-right"></i>
+                <button class="btn btn-sm btn-outline-danger" onclick="handleLogout()" title="Logout" style="border-radius:8px;font-size:12px;white-space:nowrap;">
+                    <i class="bi bi-box-arrow-right me-1"></i>Logout
                 </button>
             </div>
         </div>
