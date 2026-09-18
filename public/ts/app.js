@@ -19,8 +19,8 @@ function showLogin() {
 }
 function selectRole(role) {
     const roles = {
-        ceo: { username: 'ceo', label: 'CEO — Samhith', avatar: 'img/Screenshot 2026-08-20 162312.png' },
-        coordinator: { username: 'soumya', label: 'Coordinator — Soumya', avatar: 'img/soumya-photo.svg' }
+        ceo: { username: 'ceo', label: 'Samhith — CEO', avatar: 'img/Screenshot 2026-08-20 162312.png' },
+        coordinator: { username: 'soumya', label: 'Soumya — Coordinator', avatar: 'img/soumya-photo.svg' }
     };
     const r = roles[role];
     if (!r)
@@ -28,9 +28,8 @@ function selectRole(role) {
     document.getElementById('role-selection').classList.add('d-none');
     const formWrapper = document.getElementById('login-form-wrapper');
     formWrapper.classList.remove('d-none');
-    document.getElementById('login-role-label').textContent = 'Back to role selection';
     document.getElementById('login-role-name').textContent = r.label;
-    document.getElementById('login-role-avatar').innerHTML = `<img src="${r.avatar}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">`;
+    document.getElementById('login-role-avatar').innerHTML = `<img src="${r.avatar}" style="width:100%;height:100%;object-fit:cover;">`;
     document.getElementById('login-username').value = r.username;
     document.getElementById('login-username').focus();
     document.getElementById('login-error').classList.add('d-none');

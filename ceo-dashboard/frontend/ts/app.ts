@@ -21,17 +21,16 @@ function showLogin() {
 
 function selectRole(role: string) {
     const roles: Record<string, { username: string; label: string; avatar: string }> = {
-        ceo: { username: 'ceo', label: 'CEO — Samhith', avatar: 'img/Screenshot 2026-08-20 162312.png' },
-        coordinator: { username: 'soumya', label: 'Coordinator — Soumya', avatar: 'img/soumya-photo.svg' }
+        ceo: { username: 'ceo', label: 'Samhith — CEO', avatar: 'img/Screenshot 2026-08-20 162312.png' },
+        coordinator: { username: 'soumya', label: 'Soumya — Coordinator', avatar: 'img/soumya-photo.svg' }
     };
     const r = roles[role];
     if (!r) return;
     document.getElementById('role-selection')!.classList.add('d-none');
     const formWrapper = document.getElementById('login-form-wrapper')!;
     formWrapper.classList.remove('d-none');
-    document.getElementById('login-role-label')!.textContent = 'Back to role selection';
     document.getElementById('login-role-name')!.textContent = r.label;
-    document.getElementById('login-role-avatar')!.innerHTML = `<img src="${r.avatar}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">`;
+    document.getElementById('login-role-avatar')!.innerHTML = `<img src="${r.avatar}" style="width:100%;height:100%;object-fit:cover;">`;
     (document.getElementById('login-username') as HTMLInputElement).value = r.username;
     (document.getElementById('login-username') as HTMLInputElement).focus();
     document.getElementById('login-error')!.classList.add('d-none');
