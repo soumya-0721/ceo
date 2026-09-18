@@ -196,7 +196,8 @@ function exportAllData() {
             showToast('No data to export', 'warning');
             return;
         }
-        window.XLSX.writeFile(wb, `next360_full_export_${today}.xlsx`);
+        const user = (currentUser?.fullName || currentUser?.full_name || 'user').toLowerCase().replace(/\s+/g, '');
+        window.XLSX.writeFile(wb, `next360_full_export_${user}_${today}.xlsx`);
         showToast(`Exported ${wb.SheetNames.length} sheets successfully`);
     }).catch(() => showToast('Failed to export data', 'danger'));
 }
@@ -221,7 +222,8 @@ function exportSchedulesExcel() {
         const ws = window.XLSX.utils.json_to_sheet(data);
         const wb = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(wb, ws, 'Schedules');
-        window.XLSX.writeFile(wb, `next360_schedules_${getTodayDate()}.xlsx`);
+        const user = (currentUser?.fullName || currentUser?.full_name || 'user').toLowerCase().replace(/\s+/g, '');
+        window.XLSX.writeFile(wb, `next360_schedules_${user}_${getTodayDate()}.xlsx`);
         showToast('Schedules exported');
     }).catch(() => showToast('Failed to export', 'danger'));
 }
@@ -241,7 +243,8 @@ function exportTasksExcel() {
         const ws = window.XLSX.utils.json_to_sheet(data);
         const wb = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(wb, ws, 'Tasks');
-        window.XLSX.writeFile(wb, `next360_tasks_${getTodayDate()}.xlsx`);
+        const user = (currentUser?.fullName || currentUser?.full_name || 'user').toLowerCase().replace(/\s+/g, '');
+        window.XLSX.writeFile(wb, `next360_tasks_${user}_${getTodayDate()}.xlsx`);
         showToast('Tasks exported');
     }).catch(() => showToast('Failed to export', 'danger'));
 }
@@ -263,7 +266,8 @@ function exportRemindersExcel() {
         const ws = window.XLSX.utils.json_to_sheet(data);
         const wb = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(wb, ws, 'Reminders');
-        window.XLSX.writeFile(wb, `next360_reminders_${getTodayDate()}.xlsx`);
+        const user = (currentUser?.fullName || currentUser?.full_name || 'user').toLowerCase().replace(/\s+/g, '');
+        window.XLSX.writeFile(wb, `next360_reminders_${user}_${getTodayDate()}.xlsx`);
         showToast('Reminders exported');
     }).catch(() => showToast('Failed to export', 'danger'));
 }
@@ -345,8 +349,8 @@ function buildSidebar() {
             <div class="user-info">
                 <img src="${currentUser?.role === 'ceo' ? 'img/Screenshot 2026-08-20 162312.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
                 <div style="flex:1;">
-                    <div class="user-name">${currentUser?.fullName || currentUser?.full_name || 'User'}</div>
-                    <div class="user-role">${role}</div>
+                    <div class="user-name">${currentUser?.fullName || currentUser?.full_name || 'User'} <span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:4px;vertical-align:middle;${currentUser?.role === 'ceo' ? 'background:rgba(201,162,39,0.12);color:#C9A227;' : 'background:rgba(52,167,123,0.1);color:#3E8E68;'}">${role}</span></div>
+                    <div class="user-role">${currentUser?.role === 'ceo' ? 'Chief Executive Officer' : 'CEO Coordinator'}</div>
                 </div>
                 <button class="btn btn-sm btn-outline-danger" onclick="handleLogout()" title="Logout" style="border-radius:8px;font-size:12px;white-space:nowrap;">
                     <i class="bi bi-box-arrow-right me-1"></i>Logout
@@ -367,8 +371,8 @@ function buildSidebar() {
             <div class="user-info">
                 <img src="${currentUser?.role === 'ceo' ? 'img/Screenshot 2026-08-20 162312.png' : 'img/soumya-photo.svg'}" alt="${currentUser?.full_name}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">
                 <div style="flex:1;">
-                    <div class="user-name">${currentUser?.fullName || currentUser?.full_name}</div>
-                    <div class="user-role">${role}</div>
+                    <div class="user-name">${currentUser?.fullName || currentUser?.full_name} <span style="display:inline-block;font-size:9px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:4px;vertical-align:middle;${currentUser?.role === 'ceo' ? 'background:rgba(201,162,39,0.12);color:#C9A227;' : 'background:rgba(52,167,123,0.1);color:#3E8E68;'}">${role}</span></div>
+                    <div class="user-role">${currentUser?.role === 'ceo' ? 'Chief Executive Officer' : 'CEO Coordinator'}</div>
                 </div>
             </div>
         </div>
@@ -514,7 +518,7 @@ async function renderDashboard() {
                         <div class="hero-title">${greeting}, ${currentUser?.fullName || currentUser?.full_name || 'User'}</div>
                         <div class="hero-subtitle">${formatDate(now)} &middot; ${timeStr}</div>
                     </div>
-                    <div class="hero-quote"><p>Small steps today, big impact tomorrow</p></div>
+                    <div class="hero-quote"><p>${currentUser?.role === 'ceo' ? 'Small steps today, big impact tomorrow' : 'Keeping the team on track'}</p></div>
                 </div>
                 <div class="hero-actions">
                     <button class="btn-hero btn-hero-search" onclick="openFindTimeModal()"><i class="bi bi-search"></i> Find Time</button>
@@ -807,7 +811,8 @@ function exportBookingsToExcel() {
         const ws = window.XLSX.utils.json_to_sheet(data);
         const wb = window.XLSX.utils.book_new();
         window.XLSX.utils.book_append_sheet(wb, ws, 'Bookings');
-        window.XLSX.writeFile(wb, `next360_bookings_${new Date().toISOString().split('T')[0]}.xlsx`);
+        const user = (currentUser?.fullName || currentUser?.full_name || 'user').toLowerCase().replace(/\s+/g, '');
+        window.XLSX.writeFile(wb, `next360_bookings_${user}_${new Date().toISOString().split('T')[0]}.xlsx`);
         showToast('Excel file exported successfully');
     }).catch(() => showToast('Failed to export', 'danger'));
 }
@@ -891,7 +896,7 @@ async function renderSchedule() {
                         <div class="hero-title">Today's Schedule</div>
                         <div class="hero-subtitle">${dateFormatted}</div>
                     </div>
-                    <div class="hero-quote"><p>Small steps today, big impact tomorrow</p></div>
+                    <div class="hero-quote"><p>${currentUser?.role === 'ceo' ? 'Small steps today, big impact tomorrow' : 'Keeping the team on track'}</p></div>
                 </div>
                 <div class="hero-actions">
                     <button class="btn-hero btn-hero-search" onclick="openFindTimeModal()"><i class="bi bi-search"></i> Find Time</button>
@@ -1194,7 +1199,8 @@ function filterBookings(status, btn) {
 async function handleBooking(id, status) {
     try {
         await api.updateBookingStatus(id, status);
-        showToast(`Booking ${status}`);
+        const who = currentUser?.fullName || currentUser?.full_name || 'User';
+        showToast(`Booking ${status} by ${who}`);
         renderBookings();
     }
     catch (err) {
