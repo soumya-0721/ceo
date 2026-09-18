@@ -23,6 +23,7 @@ function showApp() {
     showPage('dashboard');
     startNotifPolling();
     showWelcomeGreeting();
+    checkWeeklyExportReminder();
 }
 function showWelcomeGreeting() {
     const now = new Date();
@@ -45,6 +46,204 @@ function showWelcomeGreeting() {
     const toast = new window.bootstrap.Toast(toastEl, { delay: 5000 });
     toast.show();
 }
+function checkWeeklyExportReminder() {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const lastDismissed = localStorage.getItem('weeklyExportDismissed');
+    const todayKey = now.toISOString().split('T')[0];
+    if (lastDismissed === todayKey)
+        return;
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+        const toastEl = document.createElement('div');
+        toastEl.className = 'toast toast-premium align-items-center border-0';
+        toastEl.setAttribute('role', 'alert');
+        toastEl.style.borderLeft = '4px solid var(--gold)';
+        toastEl.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body d-flex align-items-start gap-2">
+                    <i class="bi bi-cloud-download" style="color:var(--gold);font-size:20px;margin-top:2px;"></i>
+                    <div>
+                        <strong style="font-size:13px;">Weekly Export Reminder</strong>
+                        <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">It's the end of the week. Export your data to keep a backup.</div>
+                        <div style="margin-top:8px;display:flex;gap:8px;">
+                            <button class="btn btn-sm btn-gold" onclick="showPage('excel')" style="font-size:11px;padding:4px 12px;">Export Now</button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="dismissWeeklyReminder()" style="font-size:11px;padding:4px 12px;">Dismiss</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('toast-container').appendChild(toastEl);
+        const toast = new window.bootstrap.Toast(toastEl, { delay: 30000 });
+        toast.show();
+    }
+}
+function dismissWeeklyReminder() {
+    const todayKey = new Date().toISOString().split('T')[0];
+    localStorage.setItem('weeklyExportDismissed', todayKey);
+}
+function exportAllData() {
+    showToast('Preparing full export...', 'info');
+    Promise.all([
+        api.getSchedules(undefined, getWeekAgoDate(), getTodayDate()),
+        api.getBookings(),
+        api.getTasks(),
+        api.getReminders(),
+        api.getNotifications(),
+        api.getFocusSessions()
+    ]).then(([schedules, bookings, tasks, reminders, notifications, focus]) => {
+        const wb = window.XLSX.utils.book_new();
+        const today = getTodayDate();
+        if (schedules.length) {
+            const scheduleData = schedules.map((s) => ({
+                'Title': s.title,
+                'Description': s.description || '',
+                'Date': s.schedule_date,
+                'Start Time': formatTime12(s.start_time?.substring(0, 5)),
+                'End Time': formatTime12(s.end_time?.substring(0, 5)),
+                'Type': (s.schedule_type || 'other').replace('_', ' '),
+                'Location': s.location || '',
+                'Participants': Array.isArray(s.participants) ? s.participants.join(', ') : (s.participants || ''),
+                'Priority': s.priority || 'medium',
+                'Status': s.status || 'active',
+                'Reminder': s.reminder_minutes + ' min'
+            }));
+            const ws = window.XLSX.utils.json_to_sheet(scheduleData);
+            window.XLSX.utils.book_append_sheet(wb, ws, 'Schedules');
+        }
+        if (bookings.length) {
+            const bookingData = bookings.map((b) => ({
+                'Name': b.booked_by_name,
+                'Email': b.booked_by_email,
+                'Company': b.company || '',
+                'Phone': b.phone || '',
+                'Address': b.address || '',
+                'Place': b.place || '',
+                'Purpose': b.purpose || '',
+                'Topic': b.what || '',
+                'Date': b.booking_date,
+                'Time': formatTime12(b.preferred_time?.substring(0, 5)),
+                'Duration': (b.duration || 30) + ' min',
+                'Frequency': b.frequency || 'one-time',
+                'Visitor Type': b.visitor_type || 'external',
+                'Status': b.status || 'pending',
+                'Notes': b.notes || ''
+            }));
+            const ws = window.XLSX.utils.json_to_sheet(bookingData);
+            window.XLSX.utils.book_append_sheet(wb, ws, 'Bookings');
+        }
+        if (tasks.length) {
+            const taskData = tasks.map((t) => ({
+                'Title': t.title,
+                'Description': t.description || '',
+                'Due Date': t.due_date || '',
+                'Priority': t.priority || 'medium',
+                'Status': t.status || 'pending'
+            }));
+            const ws = window.XLSX.utils.json_to_sheet(taskData);
+            window.XLSX.utils.book_append_sheet(wb, ws, 'Tasks');
+        }
+        if (reminders.length) {
+            const reminderData = reminders.map((r) => ({
+                'Title': r.title,
+                'Description': r.description || '',
+                'Date': r.reminder_date,
+                'Time': formatTime12(r.reminder_time?.substring(0, 5)),
+                'Repeat': r.repeat_type || 'once',
+                'Priority': r.priority || 'medium',
+                'Status': r.status || 'pending'
+            }));
+            const ws = window.XLSX.utils.json_to_sheet(reminderData);
+            window.XLSX.utils.book_append_sheet(wb, ws, 'Reminders');
+        }
+        if (focus.length) {
+            const focusData = focus.map((f) => ({
+                'Title': f.title || 'Focus Time',
+                'Date': f.focus_date,
+                'Start': formatTime12(f.start_time?.substring(0, 5)),
+                'End': formatTime12(f.end_time?.substring(0, 5)),
+                'Status': f.status || 'active'
+            }));
+            const ws = window.XLSX.utils.json_to_sheet(focusData);
+            window.XLSX.utils.book_append_sheet(wb, ws, 'Focus Sessions');
+        }
+        if (wb.SheetNames.length === 0) {
+            showToast('No data to export', 'warning');
+            return;
+        }
+        window.XLSX.writeFile(wb, `next360_full_export_${today}.xlsx`);
+        showToast(`Exported ${wb.SheetNames.length} sheets successfully`);
+    }).catch(() => showToast('Failed to export data', 'danger'));
+}
+function exportSchedulesExcel() {
+    api.getSchedules(undefined, getWeekAgoDate(), getTodayDate()).then((schedules) => {
+        if (!schedules.length) {
+            showToast('No schedules to export', 'warning');
+            return;
+        }
+        const data = schedules.map((s) => ({
+            'Title': s.title,
+            'Description': s.description || '',
+            'Date': s.schedule_date,
+            'Start Time': formatTime12(s.start_time?.substring(0, 5)),
+            'End Time': formatTime12(s.end_time?.substring(0, 5)),
+            'Type': (s.schedule_type || 'other').replace('_', ' '),
+            'Location': s.location || '',
+            'Participants': Array.isArray(s.participants) ? s.participants.join(', ') : (s.participants || ''),
+            'Priority': s.priority || 'medium',
+            'Status': s.status || 'active'
+        }));
+        const ws = window.XLSX.utils.json_to_sheet(data);
+        const wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, 'Schedules');
+        window.XLSX.writeFile(wb, `next360_schedules_${getTodayDate()}.xlsx`);
+        showToast('Schedules exported');
+    }).catch(() => showToast('Failed to export', 'danger'));
+}
+function exportTasksExcel() {
+    api.getTasks().then((tasks) => {
+        if (!tasks.length) {
+            showToast('No tasks to export', 'warning');
+            return;
+        }
+        const data = tasks.map((t) => ({
+            'Title': t.title,
+            'Description': t.description || '',
+            'Due Date': t.due_date || '',
+            'Priority': t.priority || 'medium',
+            'Status': t.status || 'pending'
+        }));
+        const ws = window.XLSX.utils.json_to_sheet(data);
+        const wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, 'Tasks');
+        window.XLSX.writeFile(wb, `next360_tasks_${getTodayDate()}.xlsx`);
+        showToast('Tasks exported');
+    }).catch(() => showToast('Failed to export', 'danger'));
+}
+function exportRemindersExcel() {
+    api.getReminders().then((reminders) => {
+        if (!reminders.length) {
+            showToast('No reminders to export', 'warning');
+            return;
+        }
+        const data = reminders.map((r) => ({
+            'Title': r.title,
+            'Description': r.description || '',
+            'Date': r.reminder_date,
+            'Time': formatTime12(r.reminder_time?.substring(0, 5)),
+            'Repeat': r.repeat_type || 'once',
+            'Priority': r.priority || 'medium',
+            'Status': r.status || 'pending'
+        }));
+        const ws = window.XLSX.utils.json_to_sheet(data);
+        const wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, 'Reminders');
+        window.XLSX.writeFile(wb, `next360_reminders_${getTodayDate()}.xlsx`);
+        showToast('Reminders exported');
+    }).catch(() => showToast('Failed to export', 'danger'));
+}
+function getTodayDate() { return new Date().toISOString().split('T')[0]; }
+function getWeekAgoDate() { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().split('T')[0]; }
 function initLoginForm() {
     document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1156,17 +1355,57 @@ async function markAllRead() {
 // ===== Excel Page =====
 function renderExcel() {
     const wrapper = document.getElementById('content-wrapper');
+    const now = new Date();
+    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
     wrapper.innerHTML = `
-        <div class="content-header">
-            <div>
-                <h4>Excel Data</h4>
-                <div class="subtitle">Import and export booking data</div>
+        <div class="hero-banner" style="margin-bottom:24px;">
+            <div class="hero-top">
+                <div>
+                    <div class="hero-date-badge"><i class="bi bi-cloud-download"></i> Export</div>
+                    <div class="hero-title">Data Manager</div>
+                    <div class="hero-subtitle">Import and export your weekly data</div>
+                </div>
+                <div class="hero-quote"><p>Keep your data safe, export regularly</p></div>
             </div>
-            <button class="btn btn-gold" onclick="exportBookingsToExcel()"><i class="bi bi-download me-1"></i>Export Bookings</button>
+            <div class="hero-actions">
+                <button class="btn-hero btn-hero-add" onclick="exportAllData()"><i class="bi bi-download"></i> Export All Data</button>
+            </div>
         </div>
+
+        <div class="row g-3 mb-4 fade-in">
+            <div class="col-6 col-lg-3">
+                <div class="stat-card forest-card" style="cursor:pointer" onclick="exportSchedulesExcel()">
+                    <div class="stat-icon forest"><i class="bi bi-calendar-event"></i></div>
+                    <div class="stat-label">Schedules</div>
+                    <div style="font-size:11px;color:var(--emerald);margin-top:4px;font-weight:500;"><i class="bi bi-download me-1"></i>Export</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="stat-card gold-card" style="cursor:pointer" onclick="exportBookingsToExcel()">
+                    <div class="stat-icon gold"><i class="bi bi-calendar-check"></i></div>
+                    <div class="stat-label">Bookings</div>
+                    <div style="font-size:11px;color:var(--gold);margin-top:4px;font-weight:500;"><i class="bi bi-download me-1"></i>Export</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="stat-card success-card" style="cursor:pointer" onclick="exportTasksExcel()">
+                    <div class="stat-icon success"><i class="bi bi-list-task"></i></div>
+                    <div class="stat-label">Tasks</div>
+                    <div style="font-size:11px;color:var(--success);margin-top:4px;font-weight:500;"><i class="bi bi-download me-1"></i>Export</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="stat-card info-card" style="cursor:pointer" onclick="exportRemindersExcel()">
+                    <div class="stat-icon info"><i class="bi bi-bell"></i></div>
+                    <div class="stat-label">Reminders</div>
+                    <div style="font-size:11px;color:var(--info);margin-top:4px;font-weight:500;"><i class="bi bi-download me-1"></i>Export</div>
+                </div>
+            </div>
+        </div>
+
         <div class="row g-4">
-            <div class="col-lg-6">
-                <div class="card-premium">
+            <div class="col-lg-5">
+                <div class="card-premium h-100">
                     <div class="card-header"><i class="bi bi-upload me-2"></i>Import Excel File</div>
                     <div class="card-body">
                         <div class="upload-zone" id="upload-zone" onclick="document.getElementById('excel-file-input').click()">
@@ -1179,11 +1418,69 @@ function renderExcel() {
                     </div>
                 </div>
             </div>
-            <div class="col-lg-6">
-                <div class="card-premium">
-                    <div class="card-header"><i class="bi bi-file-earmark-check me-2"></i>Uploaded Files</div>
-                    <div class="card-body" id="excel-file-list">
-                        <div class="empty-state"><i class="bi bi-inbox"></i><p>No files uploaded yet</p></div>
+            <div class="col-lg-7">
+                <div class="card-premium h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-clock-history me-2"></i>Export History</span>
+                        <span style="font-size:11px;color:var(--text-muted);">Last 7 days data</span>
+                    </div>
+                    <div class="card-body">
+                        <div style="padding:16px;background:linear-gradient(135deg,var(--green-soft),rgba(52,167,123,0.05));border-radius:var(--radius);margin-bottom:16px;">
+                            <div style="font-size:12px;font-weight:600;color:var(--forest);margin-bottom:4px;"><i class="bi bi-info-circle me-1"></i> Weekly Export</div>
+                            <div style="font-size:12px;color:var(--text-secondary);">All exports include data from the last 7 days. A reminder is shown every weekend to keep your data backed up.</div>
+                        </div>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background:var(--green-soft);cursor:pointer;" onclick="exportAllData()">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-file-earmark-zip" style="color:var(--forest);font-size:16px;"></i>
+                                    <div>
+                                        <div style="font-size:13px;font-weight:600;">Full Export (All Data)</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">Schedules, Bookings, Tasks, Reminders, Focus</div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-forest"><i class="bi bi-download"></i></button>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background:rgba(27,94,59,0.02);cursor:pointer;" onclick="exportSchedulesExcel()">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-calendar3" style="color:var(--forest);font-size:16px;"></i>
+                                    <div>
+                                        <div style="font-size:13px;font-weight:500;">Schedules Only</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">Last 7 days of meetings</div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-forest"><i class="bi bi-download"></i></button>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background:rgba(27,94,59,0.02);cursor:pointer;" onclick="exportBookingsToExcel()">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-calendar-check" style="color:var(--gold);font-size:16px;"></i>
+                                    <div>
+                                        <div style="font-size:13px;font-weight:500;">Bookings Only</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">All booking requests</div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-forest"><i class="bi bi-download"></i></button>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background:rgba(27,94,59,0.02);cursor:pointer;" onclick="exportTasksExcel()">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-list-task" style="color:var(--success);font-size:16px;"></i>
+                                    <div>
+                                        <div style="font-size:13px;font-weight:500;">Tasks Only</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">All tasks with status</div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-forest"><i class="bi bi-download"></i></button>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background:rgba(27,94,59,0.02);cursor:pointer;" onclick="exportRemindersExcel()">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-bell" style="color:var(--info);font-size:16px;"></i>
+                                    <div>
+                                        <div style="font-size:13px;font-weight:500;">Reminders Only</div>
+                                        <div style="font-size:11px;color:var(--text-muted);">All reminders with repeat info</div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-sm btn-outline-forest"><i class="bi bi-download"></i></button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
