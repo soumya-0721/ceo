@@ -167,6 +167,7 @@ body {
 .sidebar {
     width: var(--sidebar-w);
     min-height: 100vh;
+    height: 100vh;
     background: var(--white);
     border-right: 1px solid var(--border);
     position: fixed;
@@ -286,6 +287,7 @@ body {
     padding: 16px 22px;
     border-top: 1px solid var(--border-light);
     position: relative;
+    margin-top: auto;
 }
 
 .sidebar-footer::before {
