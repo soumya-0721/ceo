@@ -616,6 +616,9 @@ function uploadExcel() {
 async function renderSchedule() {
     const wrapper = document.getElementById('content-wrapper')!;
     const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
+    const dateFormatted = formatDate(now);
 
     try {
         const [schedules, focusSessions] = await Promise.all([
@@ -623,26 +626,98 @@ async function renderSchedule() {
             api.getFocusSessions(today)
         ]);
 
-        const hours = Array.from({ length: 12 }, (_, i) => i + 8);
+        const hours = Array.from({ length: 13 }, (_, i) => i + 7);
+        const nowTime = timeNow();
+        const meetingCount = schedules.filter((s: any) => s.schedule_type !== 'personal').length;
+        const focusCount = focusSessions.length;
+        const freeSlots = hours.filter(h => {
+            const hStr = `${h.toString().padStart(2,'0')}:00`;
+            const hEnd = `${(h+1).toString().padStart(2,'0')}:00`;
+            const hasEvent = schedules.some((s: any) => s.start_time.substring(0,5) < hEnd && s.end_time.substring(0,5) > hStr);
+            const hasFocus = focusSessions.some((f: any) => f.start_time.substring(0,5) < hEnd && f.end_time.substring(0,5) > hStr);
+            return !hasEvent && !hasFocus;
+        }).length;
+
+        const typeColors: Record<string, string> = {
+            client_meeting: '#1B5E3B',
+            employee_meeting: '#2D8B57',
+            team_meeting: '#34A77B',
+            interview: '#C8962E',
+            business_meeting: '#3B82B0',
+            review: '#8B5CF6',
+            personal: '#E0A526',
+            other: '#6B7280'
+        };
+
+        const typeIcons: Record<string, string> = {
+            client_meeting: 'bi-building',
+            employee_meeting: 'bi-person-badge',
+            team_meeting: 'bi-people',
+            interview: 'bi-mic',
+            business_meeting: 'bi-briefcase',
+            review: 'bi-clipboard-check',
+            personal: 'bi-heart',
+            other: 'bi-three-dots'
+        };
 
         wrapper.innerHTML = `
-            <div class="content-header">
-                <div>
-                    <h4>Today's Schedule</h4>
-                    <div class="subtitle">${formatDate(new Date())}</div>
+            <div class="hero-banner" style="margin-bottom:24px;">
+                <div class="hero-top">
+                    <div>
+                        <div class="hero-date-badge"><i class="bi bi-calendar3"></i> ${dayName}</div>
+                        <div class="hero-title">Today's Schedule</div>
+                        <div class="hero-subtitle">${dateFormatted}</div>
+                    </div>
+                    <div class="hero-quote"><p>Small steps today, big impact tomorrow</p></div>
                 </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-forest" onclick="openFindTimeModal()"><i class="bi bi-search me-1"></i>Find Time</button>
-                    <button class="btn btn-gold" onclick="openScheduleModal()"><i class="bi bi-plus-lg me-1"></i>Add Schedule</button>
+                <div class="hero-actions">
+                    <button class="btn-hero btn-hero-search" onclick="openFindTimeModal()"><i class="bi bi-search"></i> Find Time</button>
+                    <button class="btn-hero btn-hero-add" onclick="openScheduleModal()"><i class="bi bi-plus-lg"></i> Add Schedule</button>
                 </div>
             </div>
-            <div class="card-premium">
+
+            <div class="row g-3 mb-4 fade-in">
+                <div class="col-6 col-lg-3">
+                    <div class="stat-card forest-card">
+                        <div class="stat-icon forest"><i class="bi bi-calendar-event"></i></div>
+                        <div class="stat-value">${meetingCount}</div>
+                        <div class="stat-label">Meetings</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="stat-card success-card">
+                        <div class="stat-icon success"><i class="bi bi-clock"></i></div>
+                        <div class="stat-value">${freeSlots}</div>
+                        <div class="stat-label">Free Slots</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="stat-card info-card">
+                        <div class="stat-icon info"><i class="bi bi-headphones"></i></div>
+                        <div class="stat-value">${focusCount}</div>
+                        <div class="stat-label">Focus Sessions</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="stat-card gold-card">
+                        <div class="stat-icon warning"><i class="bi bi-lightning"></i></div>
+                        <div class="stat-value">${schedules.length}</div>
+                        <div class="stat-label">Total Events</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-premium" style="overflow:visible;">
+                <div class="card-header d-flex justify-content-between align-items-center" style="border-bottom:2px solid var(--green-soft);">
+                    <span style="font-weight:700;font-size:13px;color:var(--forest);text-transform:uppercase;letter-spacing:0.5px;"><i class="bi bi-clock-history me-2"></i>Timeline</span>
+                    <span style="font-size:12px;color:var(--text-muted);">${schedules.length + focusCount} events today</span>
+                </div>
                 <div class="card-body p-0">
                     ${hours.map(h => {
                         const hourStr = `${h.toString().padStart(2,'0')}:00`;
                         const hourEnd = `${(h+1).toString().padStart(2,'0')}:00`;
-                        const nowTime = timeNow();
                         const isCurrentHour = nowTime >= hourStr && nowTime < hourEnd;
+                        const isPast = nowTime >= hourEnd;
 
                         const events = schedules.filter((s: any) => {
                             const st = s.start_time.substring(0,5);
@@ -652,29 +727,67 @@ async function renderSchedule() {
 
                         const focus = focusSessions.find((f: any) => f.start_time.substring(0,5) < hourEnd && f.end_time.substring(0,5) > hourStr);
 
+                        const hasAny = events.length > 0 || focus;
+
                         return `
-                            <div class="d-flex border-bottom" style="min-height:70px">
-                                <div style="width:90px;padding:12px 16px;background:${isCurrentHour ? 'rgba(201,162,39,0.08)' : '#fafafa'};font-size:12px;font-weight:600;color:#888;border-right:1px solid rgba(0,0,0,0.06)">
-                                    ${isCurrentHour ? '<span class="text-danger">●</span> ' : ''}${formatTime12(hourStr)}
+                            <div class="schedule-row" style="display:flex;min-height:80px;border-bottom:1px solid var(--border-light);${isPast && !hasAny ? 'opacity:0.45;' : ''}">
+                                <div class="schedule-time-col" style="width:100px;padding:14px 16px;background:${isCurrentHour ? 'linear-gradient(135deg,rgba(27,94,59,0.06),rgba(52,167,123,0.04))' : 'transparent'};border-right:2px solid ${isCurrentHour ? 'var(--emerald)' : 'var(--border-light)'};display:flex;align-items:flex-start;gap:6px;position:relative;">
+                                    ${isCurrentHour ? '<span style="position:absolute;left:-4px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--danger);box-shadow:0 0 8px rgba(217,79,79,0.4);animation:blink 2s infinite;"></span>' : ''}
+                                    <span style="font-size:12.5px;font-weight:700;color:${isCurrentHour ? 'var(--forest)' : isPast ? 'var(--text-muted)' : 'var(--text-secondary)'};letter-spacing:-0.2px;">${formatTime12(hourStr)}</span>
                                 </div>
-                                <div class="flex-grow-1 p-2" style="cursor:pointer" onclick="openScheduleModal(null,'${hourStr}')">
-                                    ${focus ? `<div class="rounded px-3 py-2 mb-1" style="background:rgba(75,127,163,0.1);border-left:3px solid var(--info);font-size:13px"><i class="bi bi-headphones me-1"></i>${focus.title || 'Focus Time'}</div>` : ''}
-                                    ${events.map((s: any) => `
-                                        <div class="rounded px-3 py-2 mb-1" style="background:rgba(23,63,53,0.06);border-left:3px solid var(--forest);cursor:pointer" onclick="event.stopPropagation();editSchedule('${s.id}')">
-                                            <div style="font-size:13px;font-weight:600">${s.title}</div>
-                                            <div style="font-size:11px;color:#888">${formatTime12(s.start_time.substring(0,5))} - ${formatTime12(s.end_time.substring(0,5))} ${s.location ? '&middot; <i class="bi bi-geo-alt"></i> ' + s.location : ''}</div>
-                                            ${s.participants?.length ? `<div style="font-size:11px;color:#666"><i class="bi bi-people me-1"></i>${Array.isArray(s.participants) ? s.participants.join(', ') : s.participants}</div>` : ''}
-                                            ${s.description ? `<div style="font-size:11px;color:#888;font-style:italic"><i class="bi bi-chat-dots me-1"></i>${s.description.length > 60 ? s.description.substring(0, 60) + '...' : s.description}</div>` : ''}
-                                            <div style="font-size:10px;margin-top:2px">
-                                                <span style="background:rgba(23,63,53,0.1);padding:1px 6px;border-radius:3px;color:#173F35">${(s.schedule_type || 'other').replace('_', ' ')}</span>
-                                                ${s.priority && s.priority !== 'medium' ? `<span style="background:${s.priority === 'urgent' ? 'rgba(220,53,69,0.15)' : s.priority === 'high' ? 'rgba(255,193,7,0.15)' : 'rgba(108,117,125,0.15)'};padding:1px 6px;border-radius:3px;margin-left:4px;color:${s.priority === 'urgent' ? '#dc3545' : s.priority === 'high' ? '#856404' : '#6c757d'}">${s.priority}</span>` : ''}
+                                <div style="flex:1;padding:10px 16px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(27,94,59,0.015)'" onmouseout="this.style.background='transparent'" onclick="openScheduleModal(null,'${hourStr}')">
+                                    ${focus ? `
+                                        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:6px;background:linear-gradient(135deg,rgba(59,130,176,0.08),rgba(59,130,176,0.04));border-radius:var(--radius-sm);border-left:3px solid var(--info);">
+                                            <div style="width:34px;height:34px;border-radius:8px;background:rgba(59,130,176,0.12);display:flex;align-items:center;justify-content:center;"><i class="bi bi-headphones" style="color:var(--info);font-size:14px;"></i></div>
+                                            <div style="flex:1;">
+                                                <div style="font-size:13px;font-weight:600;color:var(--info);">${focus.title || 'Focus Time'}</div>
+                                                <div style="font-size:11px;color:var(--text-muted);">${formatTime12(focus.start_time.substring(0,5))} - ${formatTime12(focus.end_time.substring(0,5))}</div>
                                             </div>
+                                            <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;padding:3px 8px;border-radius:6px;background:rgba(59,130,176,0.1);color:var(--info);">Focus</span>
                                         </div>
-                                    `).join('')}
+                                    ` : ''}
+                                    ${events.map((s: any) => {
+                                        const color = typeColors[s.schedule_type] || typeColors.other;
+                                        const icon = typeIcons[s.schedule_type] || typeIcons.other;
+                                        const sType = (s.schedule_type || 'other').replace('_', ' ');
+                                        return `
+                                            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;margin-bottom:6px;background:linear-gradient(135deg,${color}08,${color}04);border-radius:var(--radius-sm);border-left:3px solid ${color};cursor:pointer;transition:all 0.2s;box-shadow:var(--shadow-xs);" onclick="event.stopPropagation();editSchedule('${s.id}')" onmouseover="this.style.boxShadow='var(--shadow-sm)';this.style.transform='translateX(2px)'" onmouseout="this.style.boxShadow='var(--shadow-xs)';this.style.transform='none'">
+                                                <div style="width:34px;height:34px;border-radius:8px;background:${color}15;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi ${icon}" style="color:${color};font-size:14px;"></i></div>
+                                                <div style="flex:1;min-width:0;">
+                                                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+                                                        <span style="font-size:13.5px;font-weight:600;color:var(--text);">${s.title}</span>
+                                                        ${s.priority && s.priority !== 'medium' ? `<span style="font-size:9px;text-transform:uppercase;letter-spacing:0.3px;font-weight:600;padding:2px 6px;border-radius:4px;background:${s.priority === 'urgent' ? 'rgba(217,79,79,0.1)' : s.priority === 'high' ? 'rgba(224,165,38,0.1)' : 'rgba(107,114,128,0.1)'};color:${s.priority === 'urgent' ? 'var(--danger)' : s.priority === 'high' ? 'var(--warning)' : 'var(--text-muted)'}">${s.priority}</span>` : ''}
+                                                    </div>
+                                                    <div style="font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                                        <span><i class="bi bi-clock me-1"></i>${formatTime12(s.start_time.substring(0,5))} - ${formatTime12(s.end_time.substring(0,5))}</span>
+                                                        ${s.location ? `<span><i class="bi bi-geo-alt me-1"></i>${s.location}</span>` : ''}
+                                                        ${s.participants?.length ? `<span><i class="bi bi-people me-1"></i>${Array.isArray(s.participants) ? s.participants.join(', ') : s.participants}</span>` : ''}
+                                                    </div>
+                                                    ${s.description ? `<div style="font-size:11px;color:var(--text-muted);font-style:italic;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i class="bi bi-chat-dots me-1"></i>${s.description.length > 70 ? s.description.substring(0, 70) + '...' : s.description}</div>` : ''}
+                                                </div>
+                                                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+                                                    <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;padding:3px 8px;border-radius:6px;background:${color}12;color:${color};">${sType}</span>
+                                                </div>
+                                            </div>`;
+                                    }).join('')}
+                                    ${!hasAny ? `
+                                        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;color:var(--text-muted);font-size:12.5px;cursor:pointer;" onclick="event.stopPropagation();openScheduleModal(null,'${hourStr}')">
+                                            <i class="bi bi-plus-circle" style="font-size:16px;opacity:0.3;"></i>
+                                            <span style="opacity:0.5;">No schedule &middot; Click to add</span>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             </div>`;
                     }).join('')}
                 </div>
+            </div>
+
+            <div style="margin-top:24px;padding:20px 24px;background:linear-gradient(135deg,var(--green-soft),rgba(52,167,123,0.05));border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                    <div style="font-size:12px;font-weight:600;color:var(--forest);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Keep Going</div>
+                    <div style="font-size:13px;color:var(--text-secondary);">Every meeting brings you closer to your goals</div>
+                </div>
+                <div style="font-size:28px;opacity:0.2;">&#127793;</div>
             </div>
         `;
     } catch (err) {
