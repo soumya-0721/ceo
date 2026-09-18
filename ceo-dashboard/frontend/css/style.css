@@ -1241,3 +1241,40 @@ body {
 
 .modal-body { padding: 24px; }
 .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border-light); }
+
+/* Book Meeting CTA Button */
+.btn-book-meeting {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #C9A227 0%, #e0b840 100%) !important;
+    color: white !important;
+    text-decoration: none !important;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: 0 4px 14px rgba(201,162,39,0.35);
+    transition: all 0.3s;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+.btn-book-meeting:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(201,162,39,0.45);
+    color: white !important;
+    text-decoration: none !important;
+}
+.btn-book-meeting .book-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.btn-book-meeting .book-text { flex: 1; }
+.btn-book-meeting .book-title { font-size: 14px; font-weight: 700; }
+.btn-book-meeting .book-sub { font-size: 11px; opacity: 0.85; font-weight: 400; }
+.btn-book-meeting .book-arrow { margin-left: auto; font-size: 16px; }
