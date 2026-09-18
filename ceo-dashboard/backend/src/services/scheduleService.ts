@@ -41,7 +41,7 @@ export class ScheduleService {
     async checkConflict(date: string, startTime: string, endTime: string, excludeId?: string) {
         let query = `SELECT id, title, start_time, end_time FROM schedules
                      WHERE schedule_date = $1 AND status = 'active'
-                     AND ((start_time < $3 AND end_time > $2) OR (start_time < $3 AND end_time > $2))`;
+                     AND ((start_time < $3 AND end_time > $2) OR (start_time < $2 AND end_time > $2) OR ($2 < start_time AND $3 > end_time))`;
         const params: any[] = [date, startTime, endTime];
 
         if (excludeId) {

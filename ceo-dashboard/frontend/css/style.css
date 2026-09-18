@@ -109,24 +109,30 @@ body {
     font-weight: 400;
 }
 
-.login-form .form-floating .form-control {
+.login-form .form-control {
     border: 1.5px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 16px 16px;
+    border-radius: 10px;
+    padding: 14px 16px;
     font-size: 14px;
-    background: var(--cream);
+    background: var(--white);
     transition: var(--transition);
     height: 52px;
+    color: var(--text-secondary);
 }
 
-.login-form .form-floating .form-control:focus {
+.login-form .form-control::placeholder {
+    color: var(--text-muted);
+}
+
+.login-form .form-control:focus {
     border-color: var(--green);
     box-shadow: 0 0 0 3px rgba(47,102,88,0.08);
     background: var(--white);
+    color: var(--text);
 }
 
-.login-form .form-floating label {
-    color: var(--text-muted);
+.login-form .form-label {
+    color: var(--text-secondary);
     font-size: 13px;
 }
 

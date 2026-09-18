@@ -142,12 +142,12 @@
                         <input type="hidden" id="sch-id">
                         <div class="row g-3">
                             <div class="col-12">
-                                <label class="form-label">Title *</label>
-                                <input type="text" class="form-control" id="sch-title" required>
+                                <label class="form-label">Meeting Title *</label>
+                                <input type="text" class="form-control" id="sch-title" required placeholder="e.g. Client meeting with ABC Corp">
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Description</label>
-                                <textarea class="form-control" id="sch-description" rows="2"></textarea>
+                                <label class="form-label">Purpose / Notes</label>
+                                <textarea class="form-control" id="sch-description" rows="3" placeholder="Why are you meeting? Agenda, notes, or purpose..."></textarea>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Date *</label>
@@ -162,7 +162,7 @@
                                 <input type="time" class="form-control" id="sch-end" required>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Type</label>
+                                <label class="form-label">Meeting Type</label>
                                 <select class="form-select" id="sch-type">
                                     <option value="client_meeting">Client Meeting</option>
                                     <option value="employee_meeting">Employee Meeting</option>
@@ -176,11 +176,11 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Location</label>
-                                <input type="text" class="form-control" id="sch-location">
+                                <input type="text" class="form-control" id="sch-location" placeholder="e.g. Office, Zoom, Client's office">
                             </div>
                             <div class="col-12">
-                                <label class="form-label">Participants (comma separated)</label>
-                                <input type="text" class="form-control" id="sch-participants">
+                                <label class="form-label">Who are you meeting with? (comma separated)</label>
+                                <input type="text" class="form-control" id="sch-participants" placeholder="e.g. Ravi Kumar, Priya Sharma">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Priority</label>

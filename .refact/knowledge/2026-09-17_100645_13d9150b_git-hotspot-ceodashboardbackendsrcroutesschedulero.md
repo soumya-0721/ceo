@@ -4,7 +4,7 @@ title: "Git hotspot: ceo-dashboard/backend/src/routes/scheduleRoutes.ts"
 kind: code
 created: 2026-09-17
 updated: 2026-09-17
-review_after: 2026-10-17
+review_after: 2026-09-17
 status: proposed
 tags: ["code", "git", "hotspot"]
 filenames: ["ceo-dashboard/backend/src/routes/scheduleRoutes.ts"]
@@ -14,6 +14,9 @@ source_tool: "buddy_memory_lifecycle:git"
 source_confidence: 0.740
 source_commit: "e0e9bc250c98"
 source_content_hash: "78600a932f7679c2e529847ab27bb569e60254c159ba6e8f4b1fb6ef8215a4cd"
+review_needed: true
+occurrences: 2
+last_observed: "2026-09-17T07:22:34.749742+00:00"
 ---
 
 Git hotspot: ceo-dashboard/backend/src/routes/scheduleRoutes.ts

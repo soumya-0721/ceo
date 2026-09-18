@@ -271,9 +271,11 @@ async function renderDashboard() {
             nextMeetingHtml = `
                 <div class="next-time-display">${formatTime12(nextMeeting.start_time)}</div>
                 <div class="next-meeting-title">${nextMeeting.title}</div>
+                ${nextMeeting.description ? `<div class="next-meta" style="font-style:italic"><i class="bi bi-chat-dots me-1"></i>${nextMeeting.description}</div>` : ''}
                 ${nextMeeting.location ? `<div class="next-meta"><i class="bi bi-geo-alt me-1"></i>${nextMeeting.location}</div>` : ''}
-                ${nextMeeting.participants?.length ? `<div class="next-meta"><i class="bi bi-people me-1"></i>${nextMeeting.participants.join(', ')}</div>` : ''}
+                ${nextMeeting.participants?.length ? `<div class="next-meta"><i class="bi bi-people me-1"></i>${Array.isArray(nextMeeting.participants) ? nextMeeting.participants.join(', ') : nextMeeting.participants}</div>` : ''}
                 <div class="next-meta"><i class="bi bi-clock me-1"></i>${formatTime12(nextMeeting.start_time)} - ${formatTime12(nextMeeting.end_time)}</div>
+                <div class="next-meta"><i class="bi bi-tag me-1"></i>${(nextMeeting.schedule_type || 'other').replace('_', ' ')} ${nextMeeting.priority && nextMeeting.priority !== 'medium' ? '&middot; <span style="color:' + (nextMeeting.priority === 'urgent' ? '#dc3545' : nextMeeting.priority === 'high' ? '#C9A227' : '') + '">' + nextMeeting.priority + ' priority</span>' : ''}</div>
                 <div class="next-countdown">${countdownText}</div>
                 <button class="btn btn-sm btn-gold me-2" onclick="editSchedule('${nextMeeting.id}')"><i class="bi bi-pencil me-1"></i>Edit</button>
                 <button class="btn btn-sm btn-outline-light" onclick="showPage('schedule')"><i class="bi bi-eye me-1"></i>View</button>
@@ -372,13 +374,15 @@ async function renderDashboard() {
                             schedules.map((s: any) => {
                                 const isNow = nowTime >= s.start_time.substring(0,5) && nowTime <= s.end_time.substring(0,5);
                                 const barClass = s.schedule_type === 'personal' ? 'focus' : s.schedule_type === 'review' ? 'booked' : 'busy';
+                                const priorityColor = s.priority === 'urgent' ? '#dc3545' : s.priority === 'high' ? '#C9A227' : '';
                                 return `
-                                    <div class="timeline-item ${isNow ? 'current-time-line' : ''}">
+                                    <div class="timeline-item ${isNow ? 'current-time-line' : ''}" style="cursor:pointer" onclick="editSchedule('${s.id}')">
                                         <div class="timeline-time">${formatTime12(s.start_time.substring(0,5))}</div>
                                         <div class="timeline-bar ${barClass}"></div>
                                         <div class="timeline-content">
-                                            <div class="event-title">${s.title}</div>
-                                            <div class="event-detail">${s.location || ''} ${s.participants?.length ? '&middot; ' + s.participants.join(', ') : ''}</div>
+                                            <div class="event-title">${s.title} ${priorityColor ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${priorityColor};margin-left:4px;vertical-align:middle"></span>` : ''}</div>
+                                            <div class="event-detail">${s.location ? '<i class="bi bi-geo-alt me-1"></i>' + s.location : ''} ${s.participants?.length ? '<i class="bi bi-people me-1"></i>' + (Array.isArray(s.participants) ? s.participants.join(', ') : s.participants) : ''}</div>
+                                            ${s.description ? `<div class="event-detail" style="font-style:italic;color:#999"><i class="bi bi-chat-dots me-1"></i>${s.description.length > 50 ? s.description.substring(0, 50) + '...' : s.description}</div>` : ''}
                                         </div>
                                         <span class="timeline-status status-${barClass}">${isNow ? 'NOW' : s.schedule_type?.replace('_',' ') || 'meeting'}</span>
                                     </div>`;
@@ -653,7 +657,13 @@ async function renderSchedule() {
                                     ${events.map((s: any) => `
                                         <div class="rounded px-3 py-2 mb-1" style="background:rgba(23,63,53,0.06);border-left:3px solid var(--forest);cursor:pointer" onclick="event.stopPropagation();editSchedule('${s.id}')">
                                             <div style="font-size:13px;font-weight:600">${s.title}</div>
-                                            <div style="font-size:11px;color:#888">${formatTime12(s.start_time.substring(0,5))} - ${formatTime12(s.end_time.substring(0,5))} ${s.location ? '&middot; ' + s.location : ''}</div>
+                                            <div style="font-size:11px;color:#888">${formatTime12(s.start_time.substring(0,5))} - ${formatTime12(s.end_time.substring(0,5))} ${s.location ? '&middot; <i class="bi bi-geo-alt"></i> ' + s.location : ''}</div>
+                                            ${s.participants?.length ? `<div style="font-size:11px;color:#666"><i class="bi bi-people me-1"></i>${Array.isArray(s.participants) ? s.participants.join(', ') : s.participants}</div>` : ''}
+                                            ${s.description ? `<div style="font-size:11px;color:#888;font-style:italic"><i class="bi bi-chat-dots me-1"></i>${s.description.length > 60 ? s.description.substring(0, 60) + '...' : s.description}</div>` : ''}
+                                            <div style="font-size:10px;margin-top:2px">
+                                                <span style="background:rgba(23,63,53,0.1);padding:1px 6px;border-radius:3px;color:#173F35">${(s.schedule_type || 'other').replace('_', ' ')}</span>
+                                                ${s.priority && s.priority !== 'medium' ? `<span style="background:${s.priority === 'urgent' ? 'rgba(220,53,69,0.15)' : s.priority === 'high' ? 'rgba(255,193,7,0.15)' : 'rgba(108,117,125,0.15)'};padding:1px 6px;border-radius:3px;margin-left:4px;color:${s.priority === 'urgent' ? '#dc3545' : s.priority === 'high' ? '#856404' : '#6c757d'}">${s.priority}</span>` : ''}
+                                            </div>
                                         </div>
                                     `).join('')}
                                 </div>
@@ -698,7 +708,7 @@ async function renderCalendar() {
                 <div class="calendar-day ${isToday ? 'today' : ''}" onclick="currentPageDate=new Date(${year},${month},${d});openScheduleModal(null,null,'${dateStr}')">
                     <div class="day-number">${d}</div>
                     ${daySchedules.slice(0,3).map((s: any) => `
-                        <div class="calendar-event meeting">${formatTime12(s.start_time?.substring(0,5))} ${s.title}</div>
+                        <div class="calendar-event meeting" title="${s.title}${s.participants?.length ? '\nWith: ' + (Array.isArray(s.participants) ? s.participants.join(', ') : s.participants) : ''}${s.location ? '\nAt: ' + s.location : ''}${s.description ? '\nNote: ' + s.description : ''}" onclick="event.stopPropagation();editSchedule('${s.id}')">${formatTime12(s.start_time?.substring(0,5))} ${s.title}${s.participants?.length ? ' <i class="bi bi-people" style="font-size:9px"></i>' : ''}</div>
                     `).join('')}
                     ${daySchedules.length > 3 ? `<div style="font-size:10px;color:#888">+${daySchedules.length - 3} more</div>` : ''}
                 </div>`;
@@ -1193,6 +1203,18 @@ function openFindTimeModal() {
     document.getElementById('available-slots-list')!.innerHTML = '';
     modal.show();
 }
+
+// Auto-calculate end time (30 min after start) when start time changes
+document.getElementById('sch-start')?.addEventListener('change', (e) => {
+    const startVal = (e.target as HTMLInputElement).value;
+    const endField = document.getElementById('sch-end') as HTMLInputElement;
+    if (startVal && (!endField.value || endField.value <= startVal)) {
+        const [h, m] = startVal.split(':').map(Number);
+        const endM = m + 30;
+        const endH = h + Math.floor(endM / 60);
+        endField.value = `${endH.toString().padStart(2, '0')}:${(endM % 60).toString().padStart(2, '0')}`;
+    }
+});
 
 // ===== Modal Save Handlers =====
 document.getElementById('save-schedule-btn')?.addEventListener('click', async () => {
