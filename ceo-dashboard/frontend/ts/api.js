@@ -109,5 +109,7 @@ class ApiService {
     }
     // Excel
     exportBookingsExcel() { return this.get('/bookings/export'); }
+    // Admin
+    clearAllData() { return this.post('/admin/clear-all-data', {}); }
 }
 const api = new ApiService();

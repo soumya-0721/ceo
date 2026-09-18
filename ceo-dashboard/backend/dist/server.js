@@ -18,6 +18,7 @@ const taskRoutes_1 = __importDefault(require("./routes/taskRoutes"));
 const notificationRoutes_1 = __importDefault(require("./routes/notificationRoutes"));
 const focusRoutes_1 = __importDefault(require("./routes/focusRoutes"));
 const auditRoutes_1 = __importDefault(require("./routes/auditRoutes"));
+const adminRoutes_1 = __importDefault(require("./routes/adminRoutes"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = parseInt(process.env.PORT || '3000');
@@ -37,6 +38,7 @@ app.use('/api/tasks', taskRoutes_1.default);
 app.use('/api/notifications', notificationRoutes_1.default);
 app.use('/api/focus', focusRoutes_1.default);
 app.use('/api/audit', auditRoutes_1.default);
+app.use('/api/admin', adminRoutes_1.default);
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

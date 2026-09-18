@@ -129,6 +129,9 @@ class ApiService {
 
     // Excel
     exportBookingsExcel() { return this.get<any[]>('/bookings/export'); }
+
+    // Admin
+    clearAllData() { return this.post<any>('/admin/clear-all-data', {}); }
 }
 
 const api = new ApiService();

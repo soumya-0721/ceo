@@ -14,6 +14,7 @@ import taskRoutes from './routes/taskRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import focusRoutes from './routes/focusRoutes';
 import auditRoutes from './routes/auditRoutes';
+import adminRoutes from './routes/adminRoutes';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/focus', focusRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });

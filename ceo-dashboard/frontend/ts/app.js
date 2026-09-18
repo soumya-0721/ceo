@@ -1504,11 +1504,12 @@ function renderExcel() {
 // ===== Settings Page =====
 function renderSettings() {
     const wrapper = document.getElementById('content-wrapper');
+    const isCeo = currentUser?.role === 'ceo';
     wrapper.innerHTML = `
         <div class="content-header">
             <div>
                 <h4>Settings</h4>
-                <div class="subtitle">Manage your account</div>
+                <div class="subtitle">Manage your account and data</div>
             </div>
         </div>
         <div class="row g-4">
@@ -1533,8 +1534,38 @@ function renderSettings() {
                     </div>
                 </div>
             </div>
+            ${isCeo ? `
+            <div class="col-12">
+                <div class="card-premium" style="border:1px solid rgba(217,79,79,0.2);">
+                    <div class="card-header" style="background:rgba(217,79,79,0.04);color:var(--danger);"><i class="bi bi-exclamation-triangle me-2"></i>Data Management</div>
+                    <div class="card-body">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:20px;">
+                            <div>
+                                <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;">Clear All Data</div>
+                                <div style="font-size:12.5px;color:var(--text-secondary);max-width:500px;">This will permanently delete all schedules, bookings, tasks, reminders, notifications, focus sessions, audit logs, and excel data. Users will NOT be deleted. This action cannot be undone.</div>
+                            </div>
+                            <button class="btn btn-danger" onclick="confirmClearAllData()" style="white-space:nowrap;flex-shrink:0;"><i class="bi bi-trash me-1"></i>Clear All Data</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
         </div>
     `;
+}
+function confirmClearAllData() {
+    const confirmed = confirm('Are you absolutely sure you want to delete ALL data?\n\nThis includes:\n- All schedules\n- All bookings\n- All tasks\n- All reminders\n- All notifications\n- All focus sessions\n- All audit logs\n- All excel data\n\nUsers will NOT be deleted.\n\nThis CANNOT be undone.');
+    if (!confirmed)
+        return;
+    const doubleConfirm = confirm('FINAL CONFIRMATION: Type "DELETE" mentally and click OK to proceed with deleting everything.');
+    if (!doubleConfirm)
+        return;
+    api.clearAllData().then((result) => {
+        showToast('All data has been cleared successfully', 'success');
+        setTimeout(() => showPage('dashboard'), 1500);
+    }).catch((err) => {
+        showToast(err.error || 'Failed to clear data', 'danger');
+    });
 }
 // ===== Modals =====
 function openScheduleModal(schedule, defaultTime, defaultDate) {
