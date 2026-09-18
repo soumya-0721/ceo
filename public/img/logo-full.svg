@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200">
+  <defs>
+    <linearGradient id="leaf" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3E8E68"/>
+      <stop offset="100%" style="stop-color:#2F6658"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="200" fill="#FFFFFF"/>
+  <!-- Leaf icon -->
+  <g transform="translate(20,40)">
+    <path d="M60 0 C30 20 0 60 0 100 C0 130 20 150 50 150 C80 150 100 130 100 100 C100 60 80 20 60 0Z" fill="url(#leaf)" opacity="0.9"/>
+    <path d="M60 0 C60 40 50 80 30 120" stroke="#FFFFFF" stroke-width="2" fill="none" opacity="0.4"/>
+  </g>
+  <!-- Text -->
+  <text x="140" y="72" font-family="Inter,Arial,sans-serif" font-weight="700" font-size="38" fill="#173F35" letter-spacing="-1">NEXT360</text>
+  <text x="140" y="100" font-family="Inter,Arial,sans-serif" font-weight="400" font-size="14" fill="#6B7280" letter-spacing="4">ORGANIC PRODUCTS</text>
+  <rect x="140" y="112" width="80" height="2" rx="1" fill="#C9A227" opacity="0.6"/>
+</svg>

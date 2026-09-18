@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book a Meeting - Next360 Organic Products</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --forest-green: #173F35;
+            --gold: #C9A227;
+            --cream: #F8F6F1;
+        }
+        
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background-color: var(--cream);
+            min-height: 100vh;
+        }
+        
+        .header {
+            background-color: var(--forest-green);
+            padding: 2rem 0;
+            text-align: center;
+        }
+        
+        .header img {
+            height: 60px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header h1 {
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        
+        .header p {
+            color: var(--gold);
+            font-size: 1rem;
+            font-weight: 500;
+            margin: 0;
+        }
+        
+        .form-container {
+            max-width: 700px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(23, 63, 53, 0.15);
+            overflow: hidden;
+        }
+        
+        .card-header {
+            background-color: var(--forest-green);
+            color: #fff;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+            background-color: #fff;
+        }
+        
+        .form-label {
+            font-weight: 500;
+            color: var(--forest-green);
+            margin-bottom: 0.35rem;
+        }
+        
+        .form-label .text-danger {
+            color: #dc3545 !important;
+        }
+        
+        .form-control,
+        .form-select {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.95rem;
+        }
+        
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--forest-green);
+            box-shadow: 0 0 0 0.2rem rgba(23, 63, 53, 0.15);
+        }
+        
+        .btn-book {
+            background-color: var(--forest-green);
+            border-color: var(--forest-green);
+            color: #fff;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-book:hover {
+            background-color: #0e2a23;
+            border-color: #0e2a23;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+        
+        .btn-book:disabled {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            transform: none;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--forest-green);
+            text-decoration: none;
+            font-weight: 500;
+            margin-top: 1.5rem;
+            margin-bottom: 2rem;
+            transition: color 0.2s;
+        }
+        
+        .back-link:hover {
+            color: #0e2a23;
+        }
+        
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+            border-radius: 8px;
+        }
+        
+        .alert-danger {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+            border-radius: 8px;
+        }
+        
+        .section-divider {
+            border-top: 2px solid var(--cream);
+            margin: 1.25rem 0;
+        }
+        
+        .section-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 1rem;
+        }
+        
+        .slot-btn:hover {
+            border-color: var(--forest-green) !important;
+            background: rgba(23,63,53,0.04) !important;
+        }
+        
+        .slot-btn.selected {
+            border-color: var(--forest-green) !important;
+            background: rgba(23,63,53,0.08) !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <img src="img/Screenshot 2026-08-13 113539.png" alt="Next360 Logo" style="width:70px;height:70px;border-radius:50%;" onerror="this.style.display='none'">
+            <h1>Next360 Organic Products</h1>
+            <p><i class="bi bi-calendar-check me-1"></i> Book a Meeting with CEO</p>
+        </div>
+    </div>
+    
+    <div class="form-container">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-person-lines-fill me-2"></i>Meeting Booking Form
+            </div>
+            <div class="card-body">
+                <div id="alertContainer"></div>
+                <div id="formContent">
+                    <form id="bookingForm" novalidate>
+                        <div class="section-title"><i class="bi bi-person me-1"></i>Personal Information</div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="fullName" class="form-label">Full Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="fullName" name="fullName" required placeholder="Enter your full name">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                                <input type="email" class="form-control" id="email" name="email" required placeholder="your@email.com">
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">Phone</label>
+                                <input type="tel" class="form-control" id="phone" name="phone" placeholder="+1 (555) 123-4567">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="company" class="form-label">Company / Organization</label>
+                                <input type="text" class="form-control" id="company" name="company" placeholder="Your company name">
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="visitorType" class="form-label">Visitor Type</label>
+                                <select class="form-select" id="visitorType" name="visitorType">
+                                    <option value="">Select type...</option>
+                                    <option value="External Client">External Client</option>
+                                    <option value="Partner">Partner</option>
+                                    <option value="Vendor">Vendor</option>
+                                    <option value="Investor">Investor</option>
+                                    <option value="Media">Media</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="address" class="form-label">Address</label>
+                                <input type="text" class="form-control" id="address" name="address" placeholder="Street address">
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="city" class="form-label">City / Place</label>
+                            <input type="text" class="form-control" id="city" name="city" placeholder="City, State, Country">
+                        </div>
+                        
+                        <div class="section-divider"></div>
+                        <div class="section-title"><i class="bi bi-chat-dots me-1"></i>Meeting Details</div>
+                        
+                        <div class="mb-3">
+                            <label for="purpose" class="form-label">What is this meeting about? <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="purpose" name="purpose" rows="3" required placeholder="Briefly describe the purpose of your meeting..."></textarea>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="meetingType" class="form-label">Meeting Type</label>
+                                <select class="form-select" id="meetingType" name="meetingType">
+                                    <option value="">Select type...</option>
+                                    <option value="Business Discussion">Business Discussion</option>
+                                    <option value="Product Inquiry">Product Inquiry</option>
+                                    <option value="Partnership Proposal">Partnership Proposal</option>
+                                    <option value="Investment Pitch">Investment Pitch</option>
+                                    <option value="Media Interview">Media Interview</option>
+                                    <option value="Consultation">Consultation</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label for="preferredDate" class="form-label">Preferred Date <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="preferredDate" name="preferredDate" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="duration" class="form-label">Duration</label>
+                                <select class="form-select" id="duration" name="duration">
+                                    <option value="15">15 min</option>
+                                    <option value="30" selected>30 min</option>
+                                    <option value="45">45 min</option>
+                                    <option value="60">60 min</option>
+                                    <option value="90">90 min</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="frequency" class="form-label">Frequency</label>
+                                <select class="form-select" id="frequency" name="frequency">
+                                    <option value="One-time" selected>One-time</option>
+                                    <option value="Weekly">Weekly</option>
+                                    <option value="Monthly">Monthly</option>
+                                    <option value="Quarterly">Quarterly</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="notes" class="form-label">Additional Notes</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Any additional information or special requests..."></textarea>
+                        </div>
+
+                        <div class="section-divider"></div>
+                        <div class="section-title"><i class="bi bi-clock-history me-1"></i>Available Time Slots</div>
+                        <div id="availableSlotsContainer">
+                            <div id="slotsLoading" class="text-center py-3">
+                                <div class="spinner-border text-success" role="status" style="width:1.5rem;height:1.5rem;"></div>
+                                <p class="mt-2 mb-0" style="font-size:13px;color:var(--text-secondary);">Loading available slots...</p>
+                            </div>
+                            <div id="slotsEmpty" class="text-center py-3 d-none">
+                                <i class="bi bi-calendar-x" style="font-size:32px;color:var(--gold);opacity:0.5;"></i>
+                                <p class="mt-2 mb-0" style="font-size:13px;color:var(--text-secondary);">Select a date to see available slots</p>
+                            </div>
+                            <div id="slotsList" class="d-flex flex-column gap-2"></div>
+                        </div>
+                        <div class="mt-2 mb-3" style="font-size:13px;">
+                            <span style="color:var(--text-secondary);">Selected: </span>
+                            <strong id="selectedTimeDisplay" style="color:var(--forest-green);">None selected</strong>
+                        </div>
+
+                        <input type="hidden" id="preferredTime" name="preferredTime">
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-book" id="submitBtn">
+                                <i class="bi bi-calendar-plus me-2"></i>Request Booking
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <a href="/" class="back-link">
+                <i class="bi bi-arrow-left"></i> Back to Home
+            </a>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('bookingForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const alertContainer = document.getElementById('alertContainer');
+            const formContent = document.getElementById('formContent');
+            const slotsContainer = document.getElementById('availableSlotsContainer');
+            const slotsLoading = document.getElementById('slotsLoading');
+            const slotsEmpty = document.getElementById('slotsEmpty');
+            const slotsList = document.getElementById('slotsList');
+            const selectedTimeEl = document.getElementById('selectedTimeDisplay');
+            
+            let availableSlots = [];
+            let selectedTime = '';
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('preferredDate').min = today;
+            document.getElementById('duration').value = '30';
+            
+            document.getElementById('duration').addEventListener('change', loadSlots);
+            document.getElementById('preferredDate').addEventListener('change', loadSlots);
+            
+            async function loadSlots() {
+                const date = document.getElementById('preferredDate').value;
+                const duration = document.getElementById('duration').value;
+                if (!date) return;
+                
+                slotsContainer.classList.remove('d-none');
+                slotsLoading.classList.remove('d-none');
+                slotsEmpty.classList.add('d-none');
+                slotsList.innerHTML = '';
+                selectedTime = '';
+                document.getElementById('preferredTime').value = '';
+                selectedTimeEl.textContent = 'None selected';
+                
+                try {
+                    const resp = await fetch('/api/bookings/available-slots?date=' + date + '&duration=' + duration);
+                    const data = await resp.json();
+                    availableSlots = data.slots || [];
+                    
+                    slotsLoading.classList.add('d-none');
+                    
+                    if (availableSlots.length === 0) {
+                        slotsEmpty.classList.remove('d-none');
+                        if (data.message) {
+                            slotsEmpty.innerHTML = '<i class="bi bi-calendar-x" style="font-size:32px;color:var(--gold);opacity:0.5;"></i><p class="mt-2 mb-0">' + data.message + '</p><small class="text-muted">Please try another date.</small>';
+                        }
+                    } else {
+                        slotsList.innerHTML = availableSlots.map(function(slot, i) {
+                            var s = slot.start.split(':');
+                            var e = slot.end.split(':');
+                            var sh = parseInt(s[0]), sm = parseInt(s[1]);
+                            var eh = parseInt(e[0]), em = parseInt(e[1]);
+                            var startH = sh > 12 ? sh - 12 : sh === 0 ? 12 : sh;
+                            var endH = eh > 12 ? eh - 12 : eh === 0 ? 12 : eh;
+                            var startP = sh >= 12 ? 'PM' : 'AM';
+                            var endP = eh >= 12 ? 'PM' : 'AM';
+                            var label = startH + ':' + String(sm).padStart(2,'0') + ' ' + startP + ' - ' + endH + ':' + String(em).padStart(2,'0') + ' ' + endP;
+                            var chunks = Math.floor(slot.duration / 30);
+                            return '<button type="button" class="btn slot-btn" data-index="' + i + '" data-time="' + slot.start + '" onclick="selectSlot(this,' + i + ')" style="border:2px solid #e0e0e0;border-radius:10px;padding:10px 14px;text-align:left;background:white;transition:all 0.2s;width:100%;">' +
+                                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                                '<span style="font-weight:600;font-size:14px;color:var(--forest);">' + label + '</span>' +
+                                '<span style="font-size:11px;color:var(--text-secondary);">' + slot.duration + ' min</span>' +
+                                '</div></button>';
+                        }).join('');
+                    }
+                } catch (err) {
+                    slotsLoading.classList.add('d-none');
+                    slotsEmpty.classList.remove('d-none');
+                    slotsEmpty.innerHTML = '<i class="bi bi-exclamation-triangle" style="font-size:32px;color:#dc3545;opacity:0.5;"></i><p class="mt-2 mb-0">Failed to load slots. Please try again.</p>';
+                }
+            }
+            
+            window.selectSlot = function(btn, index) {
+                document.querySelectorAll('.slot-btn').forEach(function(b) {
+                    b.style.borderColor = '#e0e0e0';
+                    b.style.background = 'white';
+                });
+                btn.style.borderColor = 'var(--forest-green)';
+                btn.style.background = 'rgba(23,63,53,0.06)';
+                selectedTime = availableSlots[index].start;
+                document.getElementById('preferredTime').value = selectedTime;
+                var s = selectedTime.split(':');
+                var sh = parseInt(s[0]), sm = parseInt(s[1]);
+                var h12 = sh > 12 ? sh - 12 : sh === 0 ? 12 : sh;
+                var p = sh >= 12 ? 'PM' : 'AM';
+                selectedTimeEl.textContent = h12 + ':' + String(sm).padStart(2,'0') + ' ' + p;
+            };
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                if (!form.checkValidity()) { e.stopPropagation(); form.classList.add('was-validated'); return; }
+                if (!selectedTime) { alert('Please select an available time slot.'); return; }
+                
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+                
+                var formData = {
+                    name: document.getElementById('fullName').value.trim(),
+                    email: document.getElementById('email').value.trim(),
+                    phone: document.getElementById('phone').value.trim(),
+                    company: document.getElementById('company').value.trim(),
+                    visitorType: document.getElementById('visitorType').value,
+                    address: document.getElementById('address').value.trim(),
+                    place: document.getElementById('city').value.trim(),
+                    purpose: document.getElementById('purpose').value.trim(),
+                    what: document.getElementById('meetingType').value,
+                    date: document.getElementById('preferredDate').value,
+                    time: selectedTime,
+                    duration: document.getElementById('duration').value,
+                    frequency: document.getElementById('frequency').value,
+                    notes: document.getElementById('notes').value.trim()
+                };
+                
+                try {
+                    var response = await fetch('/api/bookings/public', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    var result = await response.json();
+                    
+                    if (response.ok && result.success !== false) {
+                        alertContainer.innerHTML = '<div class="alert alert-success d-flex align-items-center" role="alert">' +
+                            '<i class="bi bi-check-circle-fill me-2 fs-4"></i>' +
+                            '<div><strong>Booking Request Submitted!</strong><br>' +
+                            '<small>Thank you for your request. We will review it and get back to you within 24-48 hours to confirm your meeting.</small></div></div>';
+                        formContent.innerHTML = '';
+                    } else {
+                        throw new Error(result.message || result.error || 'Failed to submit booking request.');
+                    }
+                } catch (error) {
+                    alertContainer.innerHTML = '<div class="alert alert-danger d-flex align-items-center" role="alert">' +
+                        '<i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>' +
+                        '<div><strong>Submission Failed!</strong><br><small>' + (error.message || 'An error occurred. Please try again later.') + '</small></div></div>';
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-calendar-plus me-2"></i>Request Booking';
+                }
+            });
+            
+            loadSlots();
+        });
+    </script>
+</body>
+</html>

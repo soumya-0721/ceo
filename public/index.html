@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Next360 CEO Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <div class="login-brand">
+                <div class="brand-logo-wrapper">
+                    <img src="img/Screenshot 2026-08-13 113539.png" alt="Next360 Logo" class="brand-logo-img" style="width:90px;height:90px;border-radius:50%;">
+                </div>
+                <h1>Next360</h1>
+                <p>CEO Command Center &middot; Organic Products</p>
+            </div>
+
+            <!-- Step 1: Role Selection -->
+            <div id="role-selection">
+                <p style="color:var(--text-secondary);font-size:14px;text-align:center;margin-bottom:20px;">Select your role to continue</p>
+                <div class="d-flex gap-3 mb-4">
+                    <button type="button" class="btn flex-fill role-btn" onclick="selectRole('ceo')" style="border:2px solid var(--border);border-radius:12px;padding:20px 10px;background:white;cursor:pointer;transition:all 0.3s;">
+                        <img src="img/Screenshot 2026-08-20 162312.png" alt="CEO" style="width:56px;height:56px;border-radius:50%;object-fit:cover;margin-bottom:8px;border:2px solid var(--forest);">
+                        <div style="font-weight:600;font-size:14px;color:var(--forest);">CEO</div>
+                        <div style="font-size:11px;color:var(--text-secondary);">Samhith</div>
+                    </button>
+                    <button type="button" class="btn flex-fill role-btn" onclick="selectRole('coordinator')" style="border:2px solid var(--border);border-radius:12px;padding:20px 10px;background:white;cursor:pointer;transition:all 0.3s;">
+                        <div style="width:56px;height:56px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;border:2px solid var(--forest);">
+                            <i class="bi bi-person-gear" style="font-size:24px;color:white;"></i>
+                        </div>
+                        <div style="font-weight:600;font-size:14px;color:var(--forest);">Coordinator</div>
+                        <div style="font-size:11px;color:var(--text-secondary);">Soumya</div>
+                    </button>
+                </div>
+                <div style="text-align:center;padding-top:16px;border-top:1px solid var(--border-light);">
+                    <a href="book.html" style="color:var(--gold);text-decoration:none;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;">
+                        <i class="bi bi-calendar-event"></i> Book a Meeting with CEO
+                    </a>
+                </div>
+            </div>
+
+            <!-- Step 2: Login Form (hidden by default) -->
+            <div id="login-form-wrapper" class="d-none">
+                <div class="d-flex align-items-center mb-3" style="cursor:pointer;" onclick="showRoleSelection()">
+                    <i class="bi bi-arrow-left me-2" style="color:var(--forest);"></i>
+                    <span style="font-size:13px;font-weight:500;color:var(--forest);" id="login-role-label">Back to role selection</span>
+                </div>
+                <div class="text-center mb-3">
+                    <div id="login-role-avatar" style="width:48px;height:48px;border-radius:50%;margin:0 auto 8px;"></div>
+                    <div style="font-weight:600;font-size:16px;color:var(--forest);" id="login-role-name"></div>
+                </div>
+                <form id="login-form" class="login-form">
+                    <div class="mb-3">
+                        <label class="form-label" style="font-size:13px;font-weight:500;color:var(--text-secondary);">Username</label>
+                        <input type="text" class="form-control" id="login-username" placeholder="Enter your username" required style="height:52px;border-radius:10px;">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label" style="font-size:13px;font-weight:500;color:var(--text-secondary);">Password</label>
+                        <input type="password" class="form-control" id="login-password" placeholder="Enter your password" required style="height:52px;border-radius:10px;">
+                    </div>
+                    <button type="submit" class="btn btn-login w-100 mb-3" id="login-btn" style="height:52px;border-radius:10px;">
+                        <span class="btn-text">Sign In</span>
+                        <span class="btn-spinner d-none"><span class="spinner-border spinner-border-sm"></span></span>
+                    </button>
+                    <div id="login-error" class="alert alert-danger mb-3 d-none" style="border-radius:var(--radius-sm);font-size:13px;"></div>
+                </form>
+                <div style="text-align:center;padding-top:16px;border-top:1px solid var(--border-light);">
+                    <a href="book.html" style="color:var(--gold);text-decoration:none;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px;">
+                        <i class="bi bi-calendar-event"></i> Book a Meeting with CEO
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app-screen" class="app-screen d-none">
+        <!-- Mobile Navbar -->
+        <nav class="navbar fixed-top d-lg-none" style="background:var(--white);border-bottom:1px solid var(--border);box-shadow:var(--shadow-xs);">
+            <div class="container-fluid px-3">
+                <button class="btn btn-link p-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar-offcanvas" style="color:var(--text);">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <img src="img/logo.svg" alt="Next360" style="width:28px;height:28px;border-radius:6px;">
+                    <span class="fw-bold" style="font-size:15px;color:var(--forest);">Next360</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-link position-relative p-1" onclick="showPage('notifications')" style="color:var(--text-secondary);">
+                        <i class="bi bi-bell fs-5"></i>
+                        <span id="mobile-notif-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" style="font-size:9px;">0</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Sidebar Offcanvas (Mobile) -->
+        <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebar-offcanvas" style="background:var(--white);">
+            <div class="offcanvas-header" style="border-bottom:1px solid var(--border);padding:20px 22px;">
+                <div class="d-flex align-items-center gap-2">
+                    <img src="img/logo.svg" alt="Next360" style="width:32px;height:32px;border-radius:8px;">
+                    <h5 class="offcanvas-title fw-bold" style="font-size:15px;color:var(--forest);">Next360</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+            </div>
+            <div class="offcanvas-body p-0" id="mobile-sidebar-content"></div>
+        </div>
+
+        <div class="d-flex">
+            <!-- Desktop Sidebar -->
+            <aside class="sidebar d-none d-lg-flex" id="desktop-sidebar"></aside>
+
+            <!-- Main Content -->
+            <main class="main-content" id="main-content">
+                <div class="content-wrapper" id="content-wrapper">
+                    <!-- Pages loaded here -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toast-container"></div>
+
+    <!-- Modals -->
+    <div class="modal fade" id="scheduleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-forest text-white">
+                    <h5 class="modal-title" id="scheduleModalTitle">Add Schedule</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="schedule-form">
+                        <input type="hidden" id="sch-id">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Meeting Title *</label>
+                                <input type="text" class="form-control" id="sch-title" required placeholder="e.g. Client meeting with ABC Corp">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Purpose / Notes</label>
+                                <textarea class="form-control" id="sch-description" rows="3" placeholder="Why are you meeting? Agenda, notes, or purpose..."></textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Date *</label>
+                                <input type="date" class="form-control" id="sch-date" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Start Time *</label>
+                                <input type="time" class="form-control" id="sch-start" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">End Time *</label>
+                                <input type="time" class="form-control" id="sch-end" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Meeting Type</label>
+                                <select class="form-select" id="sch-type">
+                                    <option value="client_meeting">Client Meeting</option>
+                                    <option value="employee_meeting">Employee Meeting</option>
+                                    <option value="team_meeting">Team Meeting</option>
+                                    <option value="interview">Interview</option>
+                                    <option value="business_meeting">Business Meeting</option>
+                                    <option value="review">Review</option>
+                                    <option value="personal">Personal</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Location</label>
+                                <input type="text" class="form-control" id="sch-location" placeholder="e.g. Office, Zoom, Client's office">
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Who are you meeting with? (comma separated)</label>
+                                <input type="text" class="form-control" id="sch-participants" placeholder="e.g. Ravi Kumar, Priya Sharma">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Priority</label>
+                                <select class="form-select" id="sch-priority">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Reminder (minutes before)</label>
+                                <input type="number" class="form-control" id="sch-reminder" value="15">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" id="sch-status">
+                                    <option value="active">Active</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                    <option value="rescheduled">Rescheduled</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="conflict-alert" class="alert alert-warning mt-3 d-none"></div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-gold" id="save-schedule-btn">Save Schedule</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="bookingModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-forest text-white">
+                    <h5 class="modal-title">Booking Request</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="booking-form">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Name *</label>
+                                <input type="text" class="form-control" id="bk-name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email *</label>
+                                <input type="email" class="form-control" id="bk-email" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Company</label>
+                                <input type="text" class="form-control" id="bk-company">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Address</label>
+                                <input type="text" class="form-control" id="bk-address">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Place / City</label>
+                                <input type="text" class="form-control" id="bk-place">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone</label>
+                                <input type="tel" class="form-control" id="bk-phone">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Visitor Type</label>
+                                <select class="form-select" id="bk-visitor-type">
+                                    <option value="external">External</option>
+                                    <option value="internal">Internal</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Frequency</label>
+                                <select class="form-select" id="bk-frequency">
+                                    <option value="one-time">One-time</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Duration (minutes)</label>
+                                <select class="form-select" id="bk-duration">
+                                    <option value="15">15 minutes</option>
+                                    <option value="30" selected>30 minutes</option>
+                                    <option value="45">45 minutes</option>
+                                    <option value="60">60 minutes</option>
+                                    <option value="90">90 minutes</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">What / Topic</label>
+                                <textarea class="form-control" id="bk-topic" rows="2"></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Purpose *</label>
+                                <textarea class="form-control" id="bk-purpose" rows="2" required></textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Date *</label>
+                                <input type="date" class="form-control" id="bk-date" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Preferred Time *</label>
+                                <input type="time" class="form-control" id="bk-time" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Notes</label>
+                                <input type="text" class="form-control" id="bk-notes">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-gold" id="save-booking-btn">Submit Request</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="reminderModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-forest text-white">
+                    <h5 class="modal-title" id="reminderModalTitle">Add Reminder</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reminder-form">
+                        <input type="hidden" id="rem-id">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Title *</label>
+                                <input type="text" class="form-control" id="rem-title" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" id="rem-description" rows="2"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Date *</label>
+                                <input type="date" class="form-control" id="rem-date" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Time *</label>
+                                <input type="time" class="form-control" id="rem-time" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Repeat</label>
+                                <select class="form-select" id="rem-repeat">
+                                    <option value="once">Once</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Priority</label>
+                                <select class="form-select" id="rem-priority">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-gold" id="save-reminder-btn">Save Reminder</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="taskModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-forest text-white">
+                    <h5 class="modal-title" id="taskModalTitle">Add Task</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="task-form">
+                        <input type="hidden" id="tsk-id">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Title *</label>
+                                <input type="text" class="form-control" id="tsk-title" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" id="tsk-description" rows="2"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Due Date</label>
+                                <input type="date" class="form-control" id="tsk-due">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Priority</label>
+                                <select class="form-select" id="tsk-priority">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-gold" id="save-task-btn">Save Task</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="focusModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-forest text-white">
+                    <h5 class="modal-title">Schedule Focus Time</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="focus-form">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Title</label>
+                                <input type="text" class="form-control" id="foc-title" value="Focus Time">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Date *</label>
+                                <input type="date" class="form-control" id="foc-date" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Start *</label>
+                                <input type="time" class="form-control" id="foc-start" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">End *</label>
+                                <input type="time" class="form-control" id="foc-end" required>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-gold" id="save-focus-btn">Start Focus</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="findTimeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-forest text-white">
+                    <h5 class="modal-title">Find Available Time</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Date *</label>
+                            <input type="date" class="form-control" id="ft-date">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Duration *</label>
+                            <select class="form-select" id="ft-duration">
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="45">45 minutes</option>
+                                <option value="60" selected>60 minutes</option>
+                                <option value="90">90 minutes</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-gold w-100 mb-3" onclick="findAvailableSlots()">Find Slots</button>
+                    <div id="available-slots-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Excel Upload Modal -->
+    <div class="modal fade" id="excelUploadModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-forest text-white">
+                    <h5 class="modal-title">Upload Excel / CSV</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Select File (.xlsx, .xls, .csv)</label>
+                        <input type="file" class="form-control" id="excel-file-input" accept=".xlsx,.xls,.csv">
+                    </div>
+                    <button class="btn btn-gold w-100 mb-3" id="excel-upload-btn">
+                        <i class="bi bi-upload me-1"></i> Upload
+                    </button>
+                    <div id="excel-file-list" style="max-height:200px;overflow-y:auto;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="ts/api.js"></script>
+    <script src="ts/app.js"></script>
+</body>
+</html>
