@@ -44,13 +44,18 @@ class ApiService {
     logout() { return this.post('/auth/logout', {}); }
     getMe() { return this.get('/auth/me'); }
     // Schedules
-    getSchedules(date, startDate, endDate) {
+    getSchedules(date, startDate, endDate, scope) {
         let q = '/schedules?';
         if (date)
             q += `date=${date}`;
         else if (startDate && endDate)
             q += `startDate=${startDate}&endDate=${endDate}`;
+        if (scope)
+            q += `${q.endsWith('?') ? '' : '&'}scope=${scope}`;
         return this.get(q);
+    }
+    getWeekOverview(startDate, endDate) {
+        return this.get(`/schedules/week?startDate=${startDate}&endDate=${endDate}`);
     }
     getScheduleStats() { return this.get('/schedules/stats'); }
     getAvailableSlots(date, duration) { return this.get(`/schedules/available-slots?date=${date}&duration=${duration}`); }
@@ -109,6 +114,26 @@ class ApiService {
     }
     // Excel
     exportBookingsExcel() { return this.get('/bookings/export'); }
+    // CSV export of a schedule range (authenticated, streamed as a file download)
+    async exportSchedulesCsv(startDate, endDate) {
+        const headers = {};
+        const token = this.getToken();
+        if (token)
+            headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`${API_BASE}/schedules/export?startDate=${startDate}&endDate=${endDate}`, { headers });
+        if (!response.ok)
+            throw { status: response.status, error: 'Failed to export schedule' };
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `schedule_${startDate}_${endDate}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return true;
+    }
     // Admin
     clearAllData() { return this.post('/admin/clear-all-data', {}); }
 }

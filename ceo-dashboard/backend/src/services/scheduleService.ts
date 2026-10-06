@@ -1,12 +1,13 @@
 import pool from '../config/database';
+import { slotService, toMinutes, todayStr, TimeRange } from './slotService';
 
 export class ScheduleService {
-    async getByDate(date: string, userId?: string) {
+    async getByDate(date: string, userId?: string, scope?: string) {
         let query = `SELECT s.*, u.full_name as creator_name FROM schedules s
                      LEFT JOIN users u ON s.created_by = u.id
                      WHERE s.schedule_date = $1 AND s.status NOT IN ('archived')`;
         const params: any[] = [date];
-        if (userId) {
+        if (userId && scope !== 'all') {
             query += ' AND s.created_by = $2';
             params.push(userId);
         }
@@ -15,12 +16,12 @@ export class ScheduleService {
         return result.rows;
     }
 
-    async getByDateRange(startDate: string, endDate: string, userId?: string) {
+    async getByDateRange(startDate: string, endDate: string, userId?: string, scope?: string) {
         let query = `SELECT s.*, u.full_name as creator_name FROM schedules s
                      LEFT JOIN users u ON s.created_by = u.id
                      WHERE s.schedule_date BETWEEN $1 AND $2 AND s.status NOT IN ('archived')`;
         const params: any[] = [startDate, endDate];
-        if (userId) {
+        if (userId && scope !== 'all') {
             query += ' AND s.created_by = $3';
             params.push(userId);
         }
@@ -38,14 +39,20 @@ export class ScheduleService {
         return result.rows[0];
     }
 
+    /**
+     * Overlap detection across the shared calendar (CEO + Coordinator).
+     * Uses proper time-range comparison, never raw string ordering of ranges.
+     */
     async checkConflict(date: string, startTime: string, endTime: string, excludeId?: string) {
-        let query = `SELECT id, title, start_time, end_time FROM schedules
-                     WHERE schedule_date = $1 AND status = 'active'
-                     AND ((start_time < $3 AND end_time > $2) OR (start_time < $2 AND end_time > $2) OR ($2 < start_time AND $3 > end_time))`;
+        let query = `SELECT s.id, s.title, s.start_time, s.end_time, s.user_id, u.full_name as owner_name
+                     FROM schedules s
+                     LEFT JOIN users u ON s.user_id = u.id
+                     WHERE s.schedule_date = $1 AND s.status = 'active'
+                     AND s.start_time < $3 AND s.end_time > $2`;
         const params: any[] = [date, startTime, endTime];
 
         if (excludeId) {
-            query += ' AND id != $4';
+            query += ' AND s.id != $4';
             params.push(excludeId);
         }
 
@@ -53,53 +60,13 @@ export class ScheduleService {
         return result.rows;
     }
 
+    /** Free windows for a date, from the shared availability engine (includes bookings). */
     async getAvailableSlots(date: string, durationMinutes: number) {
-        const schedules = await pool.query(
-            `SELECT start_time, end_time FROM schedules
-             WHERE schedule_date = $1 AND status = 'active' ORDER BY start_time`,
-            [date]
-        );
-
-        const focusSessions = await pool.query(
-            `SELECT start_time, end_time FROM focus_sessions
-             WHERE focus_date = $1 AND status = 'active' ORDER BY start_time`,
-            [date]
-        );
-
-        const allBlocked = [...schedules.rows, ...focusSessions.rows]
-            .sort((a: any, b: any) => a.start_time.localeCompare(b.start_time));
-
-        const workStart = '09:00';
-        const workEnd = '18:00';
-        const slots: any[] = [];
-        let currentStart = workStart;
-
-        for (const block of allBlocked) {
-            if (currentStart < block.start_time) {
-                const diffMinutes = this.timeDiffMinutes(currentStart, block.start_time);
-                if (diffMinutes >= durationMinutes) {
-                    slots.push({ start_time: currentStart, end_time: block.start_time });
-                }
-            }
-            if (block.end_time > currentStart) {
-                currentStart = block.end_time;
-            }
-        }
-
-        if (currentStart < workEnd) {
-            const diffMinutes = this.timeDiffMinutes(currentStart, workEnd);
-            if (diffMinutes >= durationMinutes) {
-                slots.push({ start_time: currentStart, end_time: workEnd });
-            }
-        }
-
-        return slots;
+        return slotService.getAvailableSlots(date, durationMinutes);
     }
 
     private timeDiffMinutes(start: string, end: string): number {
-        const [sh, sm] = start.split(':').map(Number);
-        const [eh, em] = end.split(':').map(Number);
-        return (eh * 60 + em) - (sh * 60 + sm);
+        return toMinutes(end) - toMinutes(start);
     }
 
     async create(data: any) {
@@ -144,19 +111,16 @@ export class ScheduleService {
     }
 
     async getStats(userId: string) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayStr();
 
         const meetings = await pool.query(
             `SELECT COUNT(*) as count FROM schedules WHERE schedule_date=$1 AND status='active' AND schedule_type != 'personal'`,
             [today]
         );
 
-        const now = new Date();
-        const currentTime = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-
-        const freeSlots = await this.getAvailableSlots(today, 30);
-        const totalFreeMinutes = freeSlots.reduce((acc: number, slot: any) => {
-            return acc + this.timeDiffMinutes(slot.start_time, slot.end_time);
+        const freeWindows = await slotService.getFreeWindows(today);
+        const totalFreeMinutes = freeWindows.reduce((acc: number, window: TimeRange) => {
+            return acc + (toMinutes(window.end) - toMinutes(window.start));
         }, 0);
 
         return {

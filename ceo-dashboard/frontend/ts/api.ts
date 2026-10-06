@@ -58,11 +58,15 @@ class ApiService {
     getMe() { return this.get<any>('/auth/me'); }
 
     // Schedules
-    getSchedules(date?: string, startDate?: string, endDate?: string) {
+    getSchedules(date?: string, startDate?: string, endDate?: string, scope?: string) {
         let q = '/schedules?';
         if (date) q += `date=${date}`;
         else if (startDate && endDate) q += `startDate=${startDate}&endDate=${endDate}`;
+        if (scope) q += `${q.endsWith('?') ? '' : '&'}scope=${scope}`;
         return this.get<any[]>(q);
+    }
+    getWeekOverview(startDate: string, endDate: string) {
+        return this.get<any>(`/schedules/week?startDate=${startDate}&endDate=${endDate}`);
     }
     getScheduleStats() { return this.get<any>('/schedules/stats'); }
     getAvailableSlots(date: string, duration: number) { return this.get<any[]>(`/schedules/available-slots?date=${date}&duration=${duration}`); }
@@ -129,6 +133,25 @@ class ApiService {
 
     // Excel
     exportBookingsExcel() { return this.get<any[]>('/bookings/export'); }
+
+    // CSV export of a schedule range (authenticated, streamed as a file download)
+    async exportSchedulesCsv(startDate: string, endDate: string) {
+        const headers: any = {};
+        const token = this.getToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const response = await fetch(`${API_BASE}/schedules/export?startDate=${startDate}&endDate=${endDate}`, { headers });
+        if (!response.ok) throw { status: response.status, error: 'Failed to export schedule' };
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `schedule_${startDate}_${endDate}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        return true;
+    }
 
     // Admin
     clearAllData() { return this.post<any>('/admin/clear-all-data', {}); }

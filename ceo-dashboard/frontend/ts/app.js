@@ -318,7 +318,7 @@ function buildSidebar() {
     const menuItems = [
         { id: 'dashboard', icon: 'bi-grid-1x2', label: 'Dashboard' },
         { id: 'calendar', icon: 'bi-calendar3', label: 'Calendar' },
-        { id: 'schedule', icon: 'bi-clock-history', label: "Today's Schedule" },
+        { id: 'schedule', icon: 'bi-clock-history', label: 'Schedule' },
         { id: 'availability', icon: 'bi-toggle2-on', label: 'Availability' },
         { id: 'bookings', icon: 'bi-calendar-check', label: 'Bookings' },
         { id: 'reminders', icon: 'bi-bell', label: 'Reminders' },
@@ -472,13 +472,17 @@ async function renderDashboard() {
     const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
     const greeting = now.getHours() < 12 ? 'Good Morning' : now.getHours() < 17 ? 'Good Afternoon' : 'Good Evening';
     try {
-        const [scheduleStats, schedules, tasks, pendingBookings, reminders, focusSessions] = await Promise.all([
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        const [scheduleStats, schedules, tasks, pendingBookings, reminders, focusSessions, tomorrowSchedules] = await Promise.all([
             api.getScheduleStats().catch(() => ({ todayMeetings: 0, freeTimeFormatted: '0h 0m' })),
             api.getSchedules(today).catch(() => []),
             api.getTaskCounts().catch(() => ({ pending: 0, today: 0, completed: 0 })),
             api.getPendingBookingsCount().catch(() => ({ count: 0 })),
             api.getActiveReminders().catch(() => []),
-            api.getFocusSessions(today).catch(() => [])
+            api.getFocusSessions(today).catch(() => []),
+            api.getSchedules(tomorrowStr).catch(() => [])
         ]);
         const nowTime = timeStr.replace(/ AM| PM/, '').trim();
         const isFocus = focusSessions.some((f) => nowTime >= f.start_time.substring(0, 5) && nowTime <= f.end_time.substring(0, 5));
@@ -622,7 +626,7 @@ async function renderDashboard() {
                 </div>
             </div>
 
-            <div class="row g-3">
+            <div class="row g-3 mb-4">
                 <div class="col-lg-6">
                     <div class="card-premium">
                         <div class="card-header d-flex justify-content-between align-items-center">
@@ -642,6 +646,33 @@ async function renderDashboard() {
                     </div>
                 </div>
             </div>
+
+            ${tomorrowSchedules.length > 0 ? `
+            <div class="card-premium mb-4" style="border-left:3px solid #C9A227;">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-calendar-event me-2" style="color:#C9A227;"></i>Tomorrow's Schedule <span style="font-size:12px;font-weight:400;color:var(--text-muted);">(${tomorrowStr})</span></span>
+                    <button class="btn btn-sm btn-outline-forest" onclick="showPage('calendar')">View Calendar</button>
+                </div>
+                <div class="card-body" style="max-height:220px;overflow-y:auto;">
+                    ${tomorrowSchedules.map((s) => {
+            const typeColors = { client_meeting: '#1B5E3B', employee_meeting: '#2D8B57', team_meeting: '#34A77B', interview: '#C8962E', business_meeting: '#3B82B0', review: '#8B5CF6', personal: '#E0A526', other: '#6B7280' };
+            const color = typeColors[s.schedule_type] || typeColors.other;
+            return `
+                        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;margin-bottom:6px;background:${color}08;border-radius:var(--radius-sm);border-left:3px solid ${color};cursor:pointer;" onclick="editSchedule('${s.id}')">
+                            <div style="text-align:center;min-width:50px;">
+                                <div style="font-size:14px;font-weight:700;color:${color};">${formatTime12(s.start_time.substring(0, 5))}</div>
+                                <div style="font-size:10px;color:var(--text-muted);">${formatTime12(s.end_time.substring(0, 5))}</div>
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:13px;font-weight:600;color:var(--text);">${s.title}</div>
+                                <div style="font-size:11px;color:var(--text-muted);">${s.location ? '<i class="bi bi-geo-alt me-1"></i>' + s.location : ''} ${s.participants?.length ? '<i class="bi bi-people me-1"></i>' + (Array.isArray(s.participants) ? s.participants.join(', ') : s.participants) : ''}</div>
+                            </div>
+                            <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.3px;font-weight:600;padding:3px 8px;border-radius:6px;background:${color}12;color:${color};">${(s.schedule_type || 'other').replace('_', ' ')}</span>
+                        </div>`;
+        }).join('')}
+                </div>
+            </div>
+            ` : ''}
 
             <div class="text-center mt-4">
                 <button class="btn btn-forest me-2" onclick="openScheduleModal()"><i class="bi bi-plus-lg me-1"></i>Schedule</button>
@@ -846,28 +877,81 @@ function uploadExcel() {
     reader.readAsArrayBuffer(file);
 }
 // ===== Schedule Page =====
+// ===== Schedule Page (weekly) =====
+let scheduleWeekStart = '';
+function dateToKey(d) {
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+}
+function keyToDate(key) {
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+function addDaysKey(key, days) {
+    const d = keyToDate(key);
+    d.setDate(d.getDate() + days);
+    return dateToKey(d);
+}
+function mondayOf(d) {
+    const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    copy.setDate(copy.getDate() - ((copy.getDay() + 6) % 7));
+    return copy;
+}
+function fmtMinutes(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return h ? `${h}h ${m ? m + 'm' : ''}`.trim() : `${m}m`;
+}
+function weekLabel(startKey) {
+    const s = keyToDate(startKey);
+    const e = keyToDate(addDaysKey(startKey, 6));
+    const sameMonth = s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear();
+    const sTxt = s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const eTxt = e.toLocaleDateString('en-US', sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' });
+    return `${sTxt} – ${eTxt}, ${e.getFullYear()}`;
+}
+function changeScheduleWeek(delta) {
+    const base = scheduleWeekStart || dateToKey(mondayOf(new Date()));
+    scheduleWeekStart = addDaysKey(base, delta * 7);
+    renderSchedule();
+}
+function goToThisWeek() {
+    scheduleWeekStart = dateToKey(mondayOf(new Date()));
+    renderSchedule();
+}
+function goToToday() {
+    scheduleWeekStart = dateToKey(mondayOf(new Date()));
+    renderSchedule();
+}
+async function exportScheduleCsv() {
+    const start = scheduleWeekStart || dateToKey(mondayOf(new Date()));
+    showToast('Preparing CSV export...', 'info');
+    try {
+        await api.exportSchedulesCsv(start, addDaysKey(start, 6));
+        showToast('Schedule exported');
+    }
+    catch {
+        showToast('Failed to export schedule', 'danger');
+    }
+}
+function statusBadge(status) {
+    const cls = status === 'accepted' ? 'bg-success' : status === 'pending' ? 'bg-warning' : status === 'rejected' ? 'bg-danger' : 'bg-secondary';
+    return `<span class="badge ${cls}">${status || 'pending'}</span>`;
+}
 async function renderSchedule() {
     const wrapper = document.getElementById('content-wrapper');
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date();
-    const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-    const dateFormatted = formatDate(now);
+    const todayKey = dateToKey(new Date());
+    if (!scheduleWeekStart)
+        scheduleWeekStart = dateToKey(mondayOf(new Date()));
+    const weekStart = scheduleWeekStart;
+    const weekEnd = addDaysKey(weekStart, 6);
+    const isCurrentWeek = weekStart === dateToKey(mondayOf(new Date()));
     try {
-        const [schedules, focusSessions] = await Promise.all([
-            api.getSchedules(today),
-            api.getFocusSessions(today)
+        const [overview, schedules, bookings] = await Promise.all([
+            api.getWeekOverview(weekStart, weekEnd),
+            api.getSchedules(undefined, weekStart, weekEnd, 'all'),
+            api.getBookings()
         ]);
-        const hours = Array.from({ length: 13 }, (_, i) => i + 7);
-        const nowTime = timeNow();
-        const meetingCount = schedules.filter((s) => s.schedule_type !== 'personal').length;
-        const focusCount = focusSessions.length;
-        const freeSlots = hours.filter(h => {
-            const hStr = `${h.toString().padStart(2, '0')}:00`;
-            const hEnd = `${(h + 1).toString().padStart(2, '0')}:00`;
-            const hasEvent = schedules.some((s) => s.start_time.substring(0, 5) < hEnd && s.end_time.substring(0, 5) > hStr);
-            const hasFocus = focusSessions.some((f) => f.start_time.substring(0, 5) < hEnd && f.end_time.substring(0, 5) > hStr);
-            return !hasEvent && !hasFocus;
-        }).length;
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const typeColors = {
             client_meeting: '#1B5E3B',
             employee_meeting: '#2D8B57',
@@ -878,29 +962,88 @@ async function renderSchedule() {
             personal: '#E0A526',
             other: '#6B7280'
         };
-        const typeIcons = {
-            client_meeting: 'bi-building',
-            employee_meeting: 'bi-person-badge',
-            team_meeting: 'bi-people',
-            interview: 'bi-mic',
-            business_meeting: 'bi-briefcase',
-            review: 'bi-clipboard-check',
-            personal: 'bi-heart',
-            other: 'bi-three-dots'
-        };
-        wrapper.innerHTML = `
-            <div class="hero-banner" style="margin-bottom:24px;">
-                <div class="hero-top">
-                    <div>
-                        <div class="hero-date-badge"><i class="bi bi-calendar3"></i> ${dayName}</div>
-                        <div class="hero-title">Today's Schedule</div>
-                        <div class="hero-subtitle">${dateFormatted}</div>
-                    </div>
-                    <div class="hero-quote"><p>${currentUser?.role === 'ceo' ? 'Small steps today, big impact tomorrow' : 'Keeping the team on track'}</p></div>
+        const activeStatuses = ['pending', 'accepted'];
+        const todaysAppointments = bookings
+            .filter((b) => b.booking_date === todayKey && activeStatuses.includes(b.status))
+            .sort((a, b) => String(a.preferred_time).localeCompare(String(b.preferred_time)));
+        const upcomingAppointments = bookings
+            .filter((b) => b.booking_date > todayKey && activeStatuses.includes(b.status))
+            .sort((a, b) => a.booking_date.localeCompare(b.booking_date) || String(a.preferred_time).localeCompare(String(b.preferred_time)))
+            .slice(0, 6);
+        const appointmentRow = (b, showDate) => `
+            <div class="appt-row" onclick="viewAppointmentDetails('${b.id}')">
+                <div class="appt-time">
+                    <strong>${formatTime12(b.preferred_time?.substring(0, 5))}</strong>
+                    <span>${showDate ? b.booking_date : (b.duration || 30) + ' min'}</span>
                 </div>
-                <div class="hero-actions">
-                    <button class="btn-hero btn-hero-search" onclick="openFindTimeModal()"><i class="bi bi-search"></i> Find Time</button>
-                    <button class="btn-hero btn-hero-add" onclick="openScheduleModal()"><i class="bi bi-plus-lg"></i> Add Schedule</button>
+                <div class="appt-info">
+                    <div class="appt-name">${b.booked_by_name}</div>
+                    <div class="appt-purpose">${b.purpose || b.what || 'Meeting request'}</div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    ${statusBadge(b.status)}
+                    <i class="bi bi-chevron-right" style="color:var(--text-muted);font-size:12px;"></i>
+                </div>
+            </div>`;
+        const weekColumns = overview.days.map((day) => {
+            const isToday = day.date === todayKey;
+            const daySchedules = schedules.filter((s) => s.schedule_date === day.date);
+            const dayBookings = bookings.filter((b) => b.booking_date === day.date && activeStatuses.includes(b.status));
+            const freeLabel = day.freeMinutes > 0
+                ? `${fmtMinutes(day.freeMinutes)} free`
+                : (day.workingMinutes === 0 ? 'Closed' : 'Fully booked');
+            const eventsHtml = daySchedules.map((s) => {
+                const color = typeColors[s.schedule_type] || typeColors.other;
+                const isMine = s.created_by === currentUser?.id;
+                const owner = !isMine && s.creator_name ? `<div class="week-event-owner">${s.creator_name.split(' ')[0]}</div>` : '';
+                return `
+                    <div class="week-event" onclick="editSchedule('${s.id}')"
+                        title="${s.title}${s.location ? '\nAt: ' + s.location : ''}${s.description ? '\n' + s.description : ''}">
+                        <span class="week-event-bar" style="background:${color};"></span>
+                        <div class="week-event-body">
+                            <div class="week-event-time">${formatTime12(s.start_time?.substring(0, 5))}</div>
+                            <div class="week-event-title">${s.title}</div>
+                            ${owner}
+                        </div>
+                    </div>`;
+            }).join('');
+            const bookingsHtml = dayBookings.map((b) => `
+                <div class="week-event is-booking" onclick="viewAppointmentDetails('${b.id}')" title="Appointment with ${b.booked_by_name}">
+                    <span class="week-event-bar" style="background:var(--gold);"></span>
+                    <div class="week-event-body">
+                        <div class="week-event-time">${formatTime12(b.preferred_time?.substring(0, 5))}</div>
+                        <div class="week-event-title">${b.booked_by_name}</div>
+                        <div class="week-event-owner">Appointment</div>
+                    </div>
+                </div>`).join('');
+            return `
+                <div class="week-col${isToday ? ' is-today' : ''}">
+                    <div class="week-day-head">
+                        <span class="week-day-name">${dayNames[keyToDate(day.date).getDay()]}</span>
+                        <span class="week-day-num">${keyToDate(day.date).getDate()}</span>
+                    </div>
+                    <div class="week-day-body">
+                        ${eventsHtml || ''}
+                        ${bookingsHtml || ''}
+                        ${!daySchedules.length && !dayBookings.length ? '<div class="week-empty">No events</div>' : ''}
+                        <button class="week-add" onclick="openScheduleModal(null,null,'${day.date}')"><i class="bi bi-plus-lg"></i> Add</button>
+                    </div>
+                    <div class="week-free${day.freeMinutes === 0 ? ' is-full' : ''}">
+                        <i class="bi bi-clock"></i> ${freeLabel}
+                    </div>
+                </div>`;
+        }).join('');
+        wrapper.innerHTML = `
+            <div class="content-header">
+                <div>
+                    <h4>Schedule</h4>
+                    <div class="subtitle">${weekLabel(weekStart)}</div>
+                </div>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <button class="btn btn-sm ${isCurrentWeek ? 'btn-outline-forest' : 'btn-gold'}" onclick="goToToday()">Today</button>
+                    <button class="btn btn-sm btn-outline-forest" onclick="goToThisWeek()">This Week</button>
+                    <button class="btn btn-sm btn-gold" onclick="openScheduleModal()"><i class="bi bi-plus-lg me-1"></i>Add Schedule</button>
+                    <button class="btn btn-sm btn-outline-forest" onclick="exportScheduleCsv()"><i class="bi bi-download me-1"></i>Export CSV</button>
                 </div>
             </div>
 
@@ -908,115 +1051,130 @@ async function renderSchedule() {
                 <div class="col-6 col-lg-3">
                     <div class="stat-card forest-card">
                         <div class="stat-icon forest"><i class="bi bi-calendar-event"></i></div>
-                        <div class="stat-value">${meetingCount}</div>
-                        <div class="stat-label">Meetings</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg-3">
-                    <div class="stat-card success-card">
-                        <div class="stat-icon success"><i class="bi bi-clock"></i></div>
-                        <div class="stat-value">${freeSlots}</div>
-                        <div class="stat-label">Free Slots</div>
-                    </div>
-                </div>
-                <div class="col-6 col-lg-3">
-                    <div class="stat-card info-card">
-                        <div class="stat-icon info"><i class="bi bi-headphones"></i></div>
-                        <div class="stat-value">${focusCount}</div>
-                        <div class="stat-label">Focus Sessions</div>
+                        <div class="stat-value">${schedules.length}</div>
+                        <div class="stat-label">Events This Week</div>
                     </div>
                 </div>
                 <div class="col-6 col-lg-3">
                     <div class="stat-card gold-card">
-                        <div class="stat-icon warning"><i class="bi bi-lightning"></i></div>
-                        <div class="stat-value">${schedules.length}</div>
-                        <div class="stat-label">Total Events</div>
+                        <div class="stat-icon warning"><i class="bi bi-hourglass-split"></i></div>
+                        <div class="stat-value">${fmtMinutes(overview.totals.bookedMinutes)}</div>
+                        <div class="stat-label">Booked</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="stat-card success-card">
+                        <div class="stat-icon success"><i class="bi bi-unlock"></i></div>
+                        <div class="stat-value">${fmtMinutes(overview.totals.availableMinutes)}</div>
+                        <div class="stat-label">Available</div>
+                    </div>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <div class="stat-card info-card">
+                        <div class="stat-icon info"><i class="bi bi-people"></i></div>
+                        <div class="stat-value">${overview.totals.appointmentsToday}</div>
+                        <div class="stat-label">Appointments Today</div>
                     </div>
                 </div>
             </div>
 
-            <div class="card-premium" style="overflow:visible;">
-                <div class="card-header d-flex justify-content-between align-items-center" style="border-bottom:2px solid var(--green-soft);">
-                    <span style="font-weight:700;font-size:13px;color:var(--forest);text-transform:uppercase;letter-spacing:0.5px;"><i class="bi bi-clock-history me-2"></i>Timeline</span>
-                    <span style="font-size:12px;color:var(--text-muted);">${schedules.length + focusCount} events today</span>
-                </div>
-                <div class="card-body p-0">
-                    ${hours.map(h => {
-            const hourStr = `${h.toString().padStart(2, '0')}:00`;
-            const hourEnd = `${(h + 1).toString().padStart(2, '0')}:00`;
-            const isCurrentHour = nowTime >= hourStr && nowTime < hourEnd;
-            const isPast = nowTime >= hourEnd;
-            const events = schedules.filter((s) => {
-                const st = s.start_time.substring(0, 5);
-                const et = s.end_time.substring(0, 5);
-                return st < hourEnd && et > hourStr;
-            });
-            const focus = focusSessions.find((f) => f.start_time.substring(0, 5) < hourEnd && f.end_time.substring(0, 5) > hourStr);
-            const hasAny = events.length > 0 || focus;
-            return `
-                            <div class="schedule-row" style="display:flex;min-height:80px;border-bottom:1px solid var(--border-light);${isPast && !hasAny ? 'opacity:0.45;' : ''}">
-                                <div class="schedule-time-col" style="width:100px;padding:14px 16px;background:${isCurrentHour ? 'linear-gradient(135deg,rgba(27,94,59,0.06),rgba(52,167,123,0.04))' : 'transparent'};border-right:2px solid ${isCurrentHour ? 'var(--emerald)' : 'var(--border-light)'};display:flex;align-items:flex-start;gap:6px;position:relative;">
-                                    ${isCurrentHour ? '<span style="position:absolute;left:-4px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--danger);box-shadow:0 0 8px rgba(217,79,79,0.4);animation:blink 2s infinite;"></span>' : ''}
-                                    <span style="font-size:12.5px;font-weight:700;color:${isCurrentHour ? 'var(--forest)' : isPast ? 'var(--text-muted)' : 'var(--text-secondary)'};letter-spacing:-0.2px;">${formatTime12(hourStr)}</span>
-                                </div>
-                                <div style="flex:1;padding:10px 16px;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='rgba(27,94,59,0.015)'" onmouseout="this.style.background='transparent'" onclick="openScheduleModal(null,'${hourStr}')">
-                                    ${focus ? `
-                                        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;margin-bottom:6px;background:linear-gradient(135deg,rgba(59,130,176,0.08),rgba(59,130,176,0.04));border-radius:var(--radius-sm);border-left:3px solid var(--info);">
-                                            <div style="width:34px;height:34px;border-radius:8px;background:rgba(59,130,176,0.12);display:flex;align-items:center;justify-content:center;"><i class="bi bi-headphones" style="color:var(--info);font-size:14px;"></i></div>
-                                            <div style="flex:1;">
-                                                <div style="font-size:13px;font-weight:600;color:var(--info);">${focus.title || 'Focus Time'}</div>
-                                                <div style="font-size:11px;color:var(--text-muted);">${formatTime12(focus.start_time.substring(0, 5))} - ${formatTime12(focus.end_time.substring(0, 5))}</div>
-                                            </div>
-                                            <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;padding:3px 8px;border-radius:6px;background:rgba(59,130,176,0.1);color:var(--info);">Focus</span>
-                                        </div>
-                                    ` : ''}
-                                    ${events.map((s) => {
-                const color = typeColors[s.schedule_type] || typeColors.other;
-                const icon = typeIcons[s.schedule_type] || typeIcons.other;
-                const sType = (s.schedule_type || 'other').replace('_', ' ');
-                return `
-                                            <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;margin-bottom:6px;background:linear-gradient(135deg,${color}08,${color}04);border-radius:var(--radius-sm);border-left:3px solid ${color};cursor:pointer;transition:all 0.2s;box-shadow:var(--shadow-xs);" onclick="event.stopPropagation();editSchedule('${s.id}')" onmouseover="this.style.boxShadow='var(--shadow-sm)';this.style.transform='translateX(2px)'" onmouseout="this.style.boxShadow='var(--shadow-xs)';this.style.transform='none'">
-                                                <div style="width:34px;height:34px;border-radius:8px;background:${color}15;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="bi ${icon}" style="color:${color};font-size:14px;"></i></div>
-                                                <div style="flex:1;min-width:0;">
-                                                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
-                                                        <span style="font-size:13.5px;font-weight:600;color:var(--text);">${s.title}</span>
-                                                        ${s.priority && s.priority !== 'medium' ? `<span style="font-size:9px;text-transform:uppercase;letter-spacing:0.3px;font-weight:600;padding:2px 6px;border-radius:4px;background:${s.priority === 'urgent' ? 'rgba(217,79,79,0.1)' : s.priority === 'high' ? 'rgba(224,165,38,0.1)' : 'rgba(107,114,128,0.1)'};color:${s.priority === 'urgent' ? 'var(--danger)' : s.priority === 'high' ? 'var(--warning)' : 'var(--text-muted)'}">${s.priority}</span>` : ''}
-                                                    </div>
-                                                    <div style="font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                                                        <span><i class="bi bi-clock me-1"></i>${formatTime12(s.start_time.substring(0, 5))} - ${formatTime12(s.end_time.substring(0, 5))}</span>
-                                                        ${s.location ? `<span><i class="bi bi-geo-alt me-1"></i>${s.location}</span>` : ''}
-                                                        ${s.participants?.length ? `<span><i class="bi bi-people me-1"></i>${Array.isArray(s.participants) ? s.participants.join(', ') : s.participants}</span>` : ''}
-                                                    </div>
-                                                    ${s.description ? `<div style="font-size:11px;color:var(--text-muted);font-style:italic;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i class="bi bi-chat-dots me-1"></i>${s.description.length > 70 ? s.description.substring(0, 70) + '...' : s.description}</div>` : ''}
-                                                </div>
-                                                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
-                                                    <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;padding:3px 8px;border-radius:6px;background:${color}12;color:${color};">${sType}</span>
-                                                </div>
-                                            </div>`;
-            }).join('')}
-                                    ${!hasAny ? `
-                                        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;color:var(--text-muted);font-size:12.5px;cursor:pointer;" onclick="event.stopPropagation();openScheduleModal(null,'${hourStr}')">
-                                            <i class="bi bi-plus-circle" style="font-size:16px;opacity:0.3;"></i>
-                                            <span style="opacity:0.5;">No schedule &middot; Click to add</span>
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            </div>`;
-        }).join('')}
-                </div>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <button class="btn btn-outline-forest btn-sm" onclick="changeScheduleWeek(-1)"><i class="bi bi-chevron-left me-1"></i>Previous Week</button>
+                <span style="font-weight:700;font-size:13.5px;color:var(--forest);letter-spacing:0.2px;">${weekLabel(weekStart)}</span>
+                <button class="btn btn-outline-forest btn-sm" onclick="changeScheduleWeek(1)">Next Week<i class="bi bi-chevron-right ms-1"></i></button>
             </div>
 
-            <div style="margin-top:24px;padding:20px 24px;background:linear-gradient(135deg,var(--green-soft),rgba(52,167,123,0.05));border-radius:var(--radius);display:flex;align-items:center;justify-content:space-between;">
-                <div>
-                    <div style="font-size:12px;font-weight:600;color:var(--forest);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Keep Going</div>
-                    <div style="font-size:13px;color:var(--text-secondary);">Every meeting brings you closer to your goals</div>
+            <div class="card-premium week-card mb-4">
+                <div class="week-grid">${weekColumns}</div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <div class="card-premium">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span style="font-weight:700;font-size:13px;color:var(--forest);text-transform:uppercase;letter-spacing:0.5px;"><i class="bi bi-calendar-check me-2"></i>Today's Appointments</span>
+                            <span class="badge rounded-pill" style="background:var(--green-soft);color:var(--forest);">${todaysAppointments.length}</span>
+                        </div>
+                        <div class="card-body p-0">
+                            ${todaysAppointments.length ? todaysAppointments.map((b) => appointmentRow(b, false)).join('') : showEmptyState('bi-calendar-check', 'No appointments today')}
+                        </div>
+                    </div>
                 </div>
-                <div style="font-size:28px;opacity:0.2;">&#127793;</div>
+                <div class="col-lg-6">
+                    <div class="card-premium">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span style="font-weight:700;font-size:13px;color:var(--forest);text-transform:uppercase;letter-spacing:0.5px;"><i class="bi bi-arrow-right-circle me-2"></i>Upcoming</span>
+                            <span class="badge rounded-pill" style="background:var(--green-soft);color:var(--forest);">${upcomingAppointments.length}</span>
+                        </div>
+                        <div class="card-body p-0">
+                            ${upcomingAppointments.length ? upcomingAppointments.map((b) => appointmentRow(b, true)).join('') : showEmptyState('bi-arrow-right-circle', 'No upcoming appointments')}
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
     }
     catch (err) {
         wrapper.innerHTML = '<div class="alert alert-danger">Failed to load schedule</div>';
+    }
+}
+async function viewAppointmentDetails(id) {
+    try {
+        const b = await api.get(`/bookings/${id}`);
+        const modal = new window.bootstrap.Modal(document.getElementById('appointmentModal'));
+        const row = (label, value) => `
+            <div class="col-md-6 mb-3">
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600;margin-bottom:3px;">${label}</div>
+                <div style="font-size:13.5px;color:var(--text);font-weight:500;">${value || '—'}</div>
+            </div>`;
+        document.getElementById('appt-modal-body').innerHTML = `
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-3" style="border-bottom:1px solid var(--border-light);">
+                <div>
+                    <div style="font-size:16px;font-weight:700;color:var(--forest);">${b.booked_by_name}</div>
+                    <div style="font-size:12.5px;color:var(--text-muted);">${b.company || b.email || ''}</div>
+                </div>
+                ${statusBadge(b.status)}
+            </div>
+            <div class="row">
+                ${row('Date', `${b.booking_date} (${keyToDate(b.booking_date).toLocaleDateString('en-US', { weekday: 'long' })})`)}
+                ${row('Time', `${formatTime12(b.preferred_time?.substring(0, 5))} · ${b.duration || 30} min`)}
+                ${row('Email', b.email || b.booked_by_email)}
+                ${row('Phone', b.phone)}
+                ${row('Company / Organization', b.company)}
+                ${row('Visitor Type', (b.visitor_type || '').replace('_', ' '))}
+                ${row('Address', b.address)}
+                ${row('City / Place', b.place)}
+                ${row('Meeting Type', (b.what || '').replace('_', ' '))}
+                ${row('Frequency', b.frequency)}
+                ${row('Purpose', b.purpose)}
+                ${row('Additional Notes', b.notes)}
+            </div>
+            <div class="modal-footer px-0 pb-0 mt-2" style="border-top:none;">
+                <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                ${b.status === 'pending' ? `
+                    <button class="btn btn-sm btn-outline-danger" onclick="setAppointmentStatus('${b.id}','rejected')"><i class="bi bi-x-lg me-1"></i>Reject</button>
+                    <button class="btn btn-sm btn-gold" onclick="setAppointmentStatus('${b.id}','accepted')"><i class="bi bi-check-lg me-1"></i>Accept</button>
+                ` : ''}
+            </div>
+        `;
+        modal.show();
+    }
+    catch {
+        showToast('Failed to load appointment', 'danger');
+    }
+}
+async function setAppointmentStatus(id, status) {
+    try {
+        await api.updateBookingStatus(id, status);
+        bootstrap.Modal.getInstance(document.getElementById('appointmentModal'))?.hide();
+        showToast(`Appointment ${status}`);
+        if (currentPage === 'schedule')
+            renderSchedule();
+        else if (currentPage === 'bookings')
+            renderBookings();
+    }
+    catch (err) {
+        showToast(err.error || 'Failed to update appointment', 'danger');
     }
 }
 // ===== Calendar Page =====
@@ -1605,7 +1763,7 @@ function openScheduleModal(schedule, defaultTime, defaultDate) {
     document.getElementById('sch-id').value = schedule?.id || '';
     document.getElementById('sch-title').value = schedule?.title || '';
     document.getElementById('sch-description').value = schedule?.description || '';
-    document.getElementById('sch-date').value = schedule?.schedule_date || defaultDate || new Date().toISOString().split('T')[0];
+    document.getElementById('sch-date').value = schedule?.schedule_date || defaultDate || dateToKey(new Date());
     document.getElementById('sch-start').value = schedule?.start_time?.substring(0, 5) || defaultTime || '09:00';
     document.getElementById('sch-end').value = schedule?.end_time?.substring(0, 5) || '';
     document.getElementById('sch-type').value = schedule?.schedule_type || 'other';
@@ -1708,7 +1866,7 @@ document.getElementById('save-schedule-btn')?.addEventListener('click', async ()
             const alert = document.getElementById('conflict-alert');
             let slotsHtml = '';
             if (err.suggestedSlots?.length) {
-                slotsHtml = '<br><strong>Suggested slots:</strong> ' + err.suggestedSlots.map((s) => `${formatTime12(s.start_time)} - ${formatTime12(s.end_time)}`).join(', ');
+                slotsHtml = '<br><strong>Suggested slots:</strong> ' + err.suggestedSlots.map((s) => `${formatTime12(s.start_time || s.start)} - ${formatTime12(s.end_time || s.end)}`).join(', ');
             }
             alert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${err.error || 'Time conflict detected'}${slotsHtml}`;
             alert.classList.remove('d-none');
@@ -1733,7 +1891,7 @@ document.getElementById('save-booking-btn')?.addEventListener('click', async () 
         phone: document.getElementById('bk-phone')?.value || '',
         visitorType: document.getElementById('bk-visitor-type')?.value || 'external',
         frequency: document.getElementById('bk-frequency')?.value || 'once',
-        what: document.getElementById('bk-what')?.value || '',
+        what: document.getElementById('bk-topic')?.value || '',
     };
     if (!data.name || !data.email || !data.purpose || !data.date || !data.time) {
         showToast('Please fill required fields', 'warning');

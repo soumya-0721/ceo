@@ -299,16 +299,17 @@
                         <div class="section-divider"></div>
                         <div class="section-title"><i class="bi bi-clock-history me-1"></i>Available Time Slots</div>
                         <div id="availableSlotsContainer">
-                            <div id="slotsLoading" class="text-center py-3">
+                            <div id="slotsLoading" class="text-center py-3 d-none">
                                 <div class="spinner-border text-success" role="status" style="width:1.5rem;height:1.5rem;"></div>
-                                <p class="mt-2 mb-0" style="font-size:13px;color:var(--text-secondary);">Loading available slots...</p>
+                                <p class="mt-2 mb-0" style="font-size:13px;color:#6c757d;">Loading available slots...</p>
                             </div>
-                            <div id="slotsEmpty" class="text-center py-3 d-none">
+                            <div id="slotsEmpty" class="text-center py-3">
                                 <i class="bi bi-calendar-x" style="font-size:32px;color:var(--gold);opacity:0.5;"></i>
-                                <p class="mt-2 mb-0" style="font-size:13px;color:var(--text-secondary);">Select a date to see available slots</p>
+                                <p class="mt-2 mb-0" style="font-size:13px;color:#6c757d;">Select a date to see available slots</p>
                             </div>
                             <div id="slotsList" class="d-flex flex-column gap-2"></div>
                         </div>
+                        <div id="slotError" class="alert alert-danger d-none mt-2 mb-2" role="alert"></div>
                         <div class="mt-2 mb-3" style="font-size:13px;">
                             <span style="color:var(--text-secondary);">Selected: </span>
                             <strong id="selectedTimeDisplay" style="color:var(--forest-green);">None selected</strong>
@@ -345,87 +346,123 @@
             const slotsEmpty = document.getElementById('slotsEmpty');
             const slotsList = document.getElementById('slotsList');
             const selectedTimeEl = document.getElementById('selectedTimeDisplay');
+            const slotError = document.getElementById('slotError');
             
             let availableSlots = [];
             let selectedTime = '';
-            const today = new Date().toISOString().split('T')[0];
+            let slotsRequest = 0;
+            function localDateStr(d) {
+                var y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), day = String(d.getDate()).padStart(2, '0');
+                return y + '-' + m + '-' + day;
+            }
+            const today = localDateStr(new Date());
             document.getElementById('preferredDate').min = today;
             document.getElementById('duration').value = '30';
             
             document.getElementById('duration').addEventListener('change', loadSlots);
-            document.getElementById('preferredDate').addEventListener('change', loadSlots);
+            document.getElementById('preferredDate').addEventListener('change', function() { hideSlotError(); loadSlots(); });
+            
+            function showLoading() {
+                slotsLoading.classList.remove('d-none');
+                slotsEmpty.classList.add('d-none');
+                slotsList.innerHTML = '';
+            }
+            function showEmpty(msg, sub) {
+                slotsLoading.classList.add('d-none');
+                slotsList.innerHTML = '';
+                slotsEmpty.classList.remove('d-none');
+                slotsEmpty.innerHTML = '<i class="bi bi-calendar-x" style="font-size:32px;color:var(--gold);opacity:0.5;"></i>' +
+                    '<p class="mt-2 mb-0" style="font-size:13px;color:#6c757d;">' + msg + '</p>' +
+                    (sub ? '<small class="text-muted">' + sub + '</small>' : '');
+            }
+            function resetSelection() {
+                selectedTime = '';
+                document.getElementById('preferredTime').value = '';
+                selectedTimeEl.textContent = 'None selected';
+            }
+            function showSlotError(msg) {
+                slotError.textContent = msg;
+                slotError.classList.remove('d-none');
+                slotError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            function hideSlotError() {
+                slotError.classList.add('d-none');
+                slotError.textContent = '';
+            }
+            function to12h(time) {
+                var p = time.split(':');
+                var h = parseInt(p[0], 10), m = parseInt(p[1], 10);
+                var h12 = h > 12 ? h - 12 : h === 0 ? 12 : h;
+                return h12 + ':' + String(m).padStart(2, '0') + ' ' + (h >= 12 ? 'PM' : 'AM');
+            }
             
             async function loadSlots() {
                 const date = document.getElementById('preferredDate').value;
                 const duration = document.getElementById('duration').value;
-                if (!date) return;
-                
-                slotsContainer.classList.remove('d-none');
-                slotsLoading.classList.remove('d-none');
-                slotsEmpty.classList.add('d-none');
-                slotsList.innerHTML = '';
-                selectedTime = '';
-                document.getElementById('preferredTime').value = '';
-                selectedTimeEl.textContent = 'None selected';
-                
+                resetSelection();
+                hideSlotError();
+                if (!date) {
+                    showEmpty('Select a date to see available slots');
+                    return;
+                }
+                const requestId = ++slotsRequest;
+                showLoading();
                 try {
                     const resp = await fetch('/api/bookings/available-slots?date=' + date + '&duration=' + duration);
                     const data = await resp.json();
+                    if (requestId !== slotsRequest) return;
+                    if (!resp.ok) throw new Error(data.error || data.message || 'Failed to load slots.');
                     availableSlots = data.slots || [];
-                    
-                    slotsLoading.classList.add('d-none');
-                    
                     if (availableSlots.length === 0) {
-                        slotsEmpty.classList.remove('d-none');
-                        if (data.message) {
-                            slotsEmpty.innerHTML = '<i class="bi bi-calendar-x" style="font-size:32px;color:var(--gold);opacity:0.5;"></i><p class="mt-2 mb-0">' + data.message + '</p><small class="text-muted">Please try another date.</small>';
-                        }
-                    } else {
-                        slotsList.innerHTML = availableSlots.map(function(slot, i) {
-                            var s = slot.start.split(':');
-                            var e = slot.end.split(':');
-                            var sh = parseInt(s[0]), sm = parseInt(s[1]);
-                            var eh = parseInt(e[0]), em = parseInt(e[1]);
-                            var startH = sh > 12 ? sh - 12 : sh === 0 ? 12 : sh;
-                            var endH = eh > 12 ? eh - 12 : eh === 0 ? 12 : eh;
-                            var startP = sh >= 12 ? 'PM' : 'AM';
-                            var endP = eh >= 12 ? 'PM' : 'AM';
-                            var label = startH + ':' + String(sm).padStart(2,'0') + ' ' + startP + ' - ' + endH + ':' + String(em).padStart(2,'0') + ' ' + endP;
-                            var chunks = Math.floor(slot.duration / 30);
-                            return '<button type="button" class="btn slot-btn" data-index="' + i + '" data-time="' + slot.start + '" onclick="selectSlot(this,' + i + ')" style="border:2px solid #e0e0e0;border-radius:10px;padding:10px 14px;text-align:left;background:white;transition:all 0.2s;width:100%;">' +
-                                '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-                                '<span style="font-weight:600;font-size:14px;color:var(--forest);">' + label + '</span>' +
-                                '<span style="font-size:11px;color:var(--text-secondary);">' + slot.duration + ' min</span>' +
-                                '</div></button>';
-                        }).join('');
+                        const wh = (data.workingHours || []).map(function (w) { return to12h(w.start) + ' – ' + to12h(w.end); }).join(', ');
+                        showEmpty(
+                            'No available time slots for this date.',
+                            wh ? `All working hours (${wh}) are booked for this day. Please try another date.` : 'Please try another date.'
+                        );
+                        return;
                     }
+                    slotsLoading.classList.add('d-none');
+                    slotsEmpty.classList.add('d-none');
+                    slotsList.innerHTML = availableSlots.map(function(slot, i) {
+                        var label = to12h(slot.start) + ' - ' + to12h(slot.end);
+                        return '<button type="button" class="btn slot-btn" data-index="' + i + '" data-time="' + slot.start + '" onclick="selectSlot(this,' + i + ')" style="border:2px solid #e0e0e0;border-radius:10px;padding:10px 14px;text-align:left;background:white;transition:all 0.2s;width:100%;">' +
+                            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+                            '<span style="font-weight:600;font-size:14px;color:#173F35;">' + label + '</span>' +
+                            '<span style="font-size:11px;color:#6c757d;">' + slot.duration + ' min</span>' +
+                            '</div></button>';
+                    }).join('');
                 } catch (err) {
+                    if (requestId !== slotsRequest) return;
+                    availableSlots = [];
                     slotsLoading.classList.add('d-none');
                     slotsEmpty.classList.remove('d-none');
-                    slotsEmpty.innerHTML = '<i class="bi bi-exclamation-triangle" style="font-size:32px;color:#dc3545;opacity:0.5;"></i><p class="mt-2 mb-0">Failed to load slots. Please try again.</p>';
+                    slotsEmpty.innerHTML = '<i class="bi bi-exclamation-triangle" style="font-size:32px;color:#dc3545;opacity:0.5;"></i><p class="mt-2 mb-0" style="font-size:13px;">Failed to load slots. Please try again.</p>';
                 }
             }
             
             window.selectSlot = function(btn, index) {
                 document.querySelectorAll('.slot-btn').forEach(function(b) {
+                    b.classList.remove('selected');
                     b.style.borderColor = '#e0e0e0';
                     b.style.background = 'white';
                 });
+                btn.classList.add('selected');
                 btn.style.borderColor = 'var(--forest-green)';
                 btn.style.background = 'rgba(23,63,53,0.06)';
                 selectedTime = availableSlots[index].start;
                 document.getElementById('preferredTime').value = selectedTime;
-                var s = selectedTime.split(':');
-                var sh = parseInt(s[0]), sm = parseInt(s[1]);
-                var h12 = sh > 12 ? sh - 12 : sh === 0 ? 12 : sh;
-                var p = sh >= 12 ? 'PM' : 'AM';
-                selectedTimeEl.textContent = h12 + ':' + String(sm).padStart(2,'0') + ' ' + p;
+                selectedTimeEl.textContent = to12h(selectedTime);
+                hideSlotError();
             };
             
             form.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 if (!form.checkValidity()) { e.stopPropagation(); form.classList.add('was-validated'); return; }
-                if (!selectedTime) { alert('Please select an available time slot.'); return; }
+                if (!selectedTime) {
+                    showSlotError('Please select an available time slot.');
+                    return;
+                }
+                hideSlotError();
                 
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
@@ -461,9 +498,21 @@
                             '<div><strong>Booking Request Submitted!</strong><br>' +
                             '<small>Thank you for your request. We will review it and get back to you within 24-48 hours to confirm your meeting.</small></div></div>';
                         formContent.innerHTML = '';
-                    } else {
-                        throw new Error(result.message || result.error || 'Failed to submit booking request.');
+                        return;
                     }
+                    var msg = result.message || result.error || 'Failed to submit booking request.';
+                    if (response.status === 409) {
+                        resetSelection();
+            // Refresh slots when the visitor comes back (e.g. after adding a schedule in the dashboard)
+            function refreshIfVisible() {
+                if (!document.hidden && document.getElementById('preferredDate').value) loadSlots();
+            }
+            document.addEventListener('visibilitychange', refreshIfVisible);
+            window.addEventListener('pageshow', refreshIfVisible);
+
+            loadSlots();
+                    }
+                    throw new Error(msg);
                 } catch (error) {
                     alertContainer.innerHTML = '<div class="alert alert-danger d-flex align-items-center" role="alert">' +
                         '<i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>' +
