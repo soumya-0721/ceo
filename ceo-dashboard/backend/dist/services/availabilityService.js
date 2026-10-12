@@ -10,9 +10,16 @@ class AvailabilityService {
         const result = await database_1.default.query('SELECT * FROM availability WHERE user_id=$1 ORDER BY day_of_week, start_time', [userId]);
         return result.rows;
     }
+    /**
+     * Working windows for the current weekday across the team. Only the minimum
+     * fields needed to show "who is available" are returned - internal ids and
+     * audit timestamps are deliberately omitted.
+     */
     async getTodayAvailability() {
         const today = new Date().getDay();
-        const result = await database_1.default.query(`SELECT a.*, u.full_name FROM availability a
+        const result = await database_1.default.query(`SELECT a.day_of_week, a.start_time, a.end_time, a.is_available,
+                    a.label, u.full_name
+             FROM availability a
              LEFT JOIN users u ON a.user_id = u.id
              WHERE a.day_of_week = $1 AND a.is_available = true
              ORDER BY a.start_time`, [today]);
