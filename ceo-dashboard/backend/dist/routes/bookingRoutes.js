@@ -1,108 +1,92 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const bookingService_1 = require("../services/bookingService");
 const scheduleService_1 = require("../services/scheduleService");
+const authService_1 = require("../services/authService");
+const slotService_1 = require("../services/slotService");
 const notificationService_1 = require("../services/notificationService");
 const auditService_1 = require("../services/auditService");
 const auth_1 = require("../middleware/auth");
-const database_1 = __importDefault(require("../config/database"));
+const database_1 = require("../config/database");
+const scheduling_1 = require("../lib/scheduling");
 const router = (0, express_1.Router)();
-// Public: get available slots for a date (availability minus scheduled)
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
+function normalizeTime(time) {
+    return (time || '').substring(0, 5);
+}
+/**
+ * Public: automatically calculated slots for a date.
+ * working hours - CEO schedules - coordinator schedules - focus - existing bookings.
+ */
 router.get('/available-slots', async (req, res) => {
     try {
-        const { date, duration } = req.query;
-        if (!date) {
-            res.status(400).json({ error: 'Date required' });
+        const date = String(req.query.date || '');
+        const durationMin = parseInt(String(req.query.duration || ''), 10) || 30;
+        if (!DATE_RE.test(date)) {
+            res.status(400).json({ error: 'A valid date is required (YYYY-MM-DD)' });
             return;
         }
-        const durationMin = parseInt(duration) || 30;
-        const dateObj = new Date(date);
-        const dayOfWeek = dateObj.getDay();
-        // 1) CEO availability for this day of week
-        const availResult = await database_1.default.query(`SELECT start_time, end_time FROM availability
-             WHERE day_of_week = $1 AND is_available = true ORDER BY start_time`, [dayOfWeek]);
-        if (availResult.rows.length === 0) {
-            res.json({ slots: [], message: 'No availability set for this day' });
-            return;
-        }
-        // 2) Scheduled meetings + focus sessions for this date
-        const blockedResult = await database_1.default.query(`SELECT start_time, end_time FROM schedules
-             WHERE schedule_date = $1 AND status = 'active'
-             UNION ALL
-             SELECT start_time, end_time FROM focus_sessions
-             WHERE focus_date = $1 AND status = 'active'
-             ORDER BY start_time`, [date]);
-        // 3) Existing bookings for this date
-        const bookingsResult = await database_1.default.query(`SELECT preferred_time, duration FROM bookings
-             WHERE booking_date = $1 AND status IN ('pending','accepted')`, [date]);
-        // Convert bookings to blocked time ranges
-        const bookingBlocks = bookingsResult.rows.map((b) => {
-            const [h, m] = b.preferred_time.split(':').map(Number);
-            const startMin = h * 60 + m;
-            const endMin = startMin + (b.duration || 30);
-            return {
-                start_time: `${Math.floor(startMin / 60).toString().padStart(2, '0')}:${(startMin % 60).toString().padStart(2, '0')}`,
-                end_time: `${Math.floor(endMin / 60).toString().padStart(2, '0')}:${(endMin % 60).toString().padStart(2, '0')}`
-            };
+        const [slots, workingHours] = await Promise.all([
+            slotService_1.slotService.getAvailableSlots(date, durationMin),
+            slotService_1.slotService.getWorkingWindows(date)
+        ]);
+        res.json({
+            slots,
+            date,
+            duration: durationMin,
+            workingHours,
+            message: slots.length === 0 ? 'No available time slots for this date.' : undefined
         });
-        const allBlocked = [...blockedResult.rows, ...bookingBlocks]
-            .sort((a, b) => a.start_time.localeCompare(b.start_time));
-        // 4) Subtract blocked from available
-        const slots = [];
-        for (const avail of availResult.rows) {
-            let currentStart = avail.start_time;
-            for (const block of allBlocked) {
-                if (block.end_time <= currentStart)
-                    continue;
-                if (block.start_time > currentStart) {
-                    const diff = timeDiffMinutes(currentStart, block.start_time);
-                    if (diff >= durationMin) {
-                        slots.push({ start: currentStart, end: block.start_time, duration: diff });
-                    }
-                }
-                if (block.end_time > currentStart)
-                    currentStart = block.end_time;
-            }
-            if (currentStart < avail.end_time) {
-                const diff = timeDiffMinutes(currentStart, avail.end_time);
-                if (diff >= durationMin) {
-                    slots.push({ start: currentStart, end: avail.end_time, duration: diff });
-                }
-            }
-        }
-        res.json({ slots, date, dayOfWeek, duration: durationMin });
     }
     catch (error) {
         console.error('Available slots error:', error);
         res.status(500).json({ error: 'Failed to get available slots' });
     }
 });
-function timeDiffMinutes(start, end) {
-    const [sh, sm] = start.split(':').map(Number);
-    const [eh, em] = end.split(':').map(Number);
-    return (eh * 60 + em) - (sh * 60 + sm);
+/** Final availability check so an occupied slot can never be booked twice. */
+async function assertSlotIsFree(date, time, duration) {
+    if (!DATE_RE.test(date))
+        return 'A valid booking date is required.';
+    if (!TIME_RE.test(time))
+        return 'A valid booking time is required.';
+    const free = await slotService_1.slotService.isSlotAvailable(date, time, duration);
+    if (!free)
+        return 'That time slot is no longer available. Please select another slot.';
+    return null;
 }
-// Public booking route - no auth required
+// Public booking request - always created PENDING; approval is required before it
+// becomes a confirmed CEO meeting.
 router.post('/public', async (req, res) => {
     try {
-        const { name, email, company, purpose, date, time, duration, notes, address, place, frequency, what, phone, visitorType } = req.body;
+        const { name, email, company, purpose, date, time, notes, address, place, frequency, what, phone, visitorType } = req.body;
+        const duration = parseInt(String(req.body.duration || '30'), 10) || 30;
         if (!name || !email || !purpose || !date || !time) {
             res.status(400).json({ error: 'Required fields missing' });
             return;
         }
-        const booking = await bookingService_1.bookingService.create({
-            name, email, company, purpose, date, time,
-            duration: duration || 30, notes, address, place,
-            frequency, what, phone, visitorType: visitorType || 'external',
-            userId: null
-        });
-        res.status(201).json({ message: 'Booking request submitted successfully', booking });
+        // Advisory lock on the exact slot serialises simultaneous submissions so
+        // two visitors cannot both pass the availability check and double-book.
+        const booking = await (0, database_1.withTransaction)(async (client) => {
+            const conflict = await assertSlotIsFree(date, time, duration);
+            if (conflict) {
+                throw { httpStatus: 409, body: { error: conflict, message: conflict, hasConflict: true } };
+            }
+            return bookingService_1.bookingService.create({
+                name, email, company, purpose, date, time,
+                duration, notes, address, place,
+                frequency, what, phone, visitorType: visitorType || 'external',
+                userId: null
+            }, client);
+        }, `booking:${date}:${time}:${duration}`);
+        res.status(201).json({ message: 'Booking request submitted for approval', booking });
     }
     catch (error) {
+        if (error && error.httpStatus) {
+            res.status(error.httpStatus).json(error.body);
+            return;
+        }
         res.status(500).json({ error: 'Failed to create booking' });
     }
 });
@@ -138,6 +122,10 @@ router.get('/pending-count', async (_req, res) => {
 });
 router.get('/:id', async (req, res) => {
     try {
+        if (!(0, scheduling_1.canReadBooking)(req.user.role)) {
+            res.status(403).json({ error: 'You are not authorized to view this booking' });
+            return;
+        }
         const booking = await bookingService_1.bookingService.getById(req.params.id);
         if (!booking) {
             res.status(404).json({ error: 'Booking not found' });
@@ -149,65 +137,161 @@ router.get('/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to get booking' });
     }
 });
+// Authenticated booking request (still pending until the coordinator approves).
 router.post('/', async (req, res) => {
     try {
-        const { name, email, company, purpose, date, time, duration, notes, address, place, frequency, what, phone, visitorType } = req.body;
+        const { name, email, company, purpose, date, time, notes, address, place, frequency, what, phone, visitorType } = req.body;
+        const duration = parseInt(String(req.body.duration || '30'), 10) || 30;
         if (!name || !email || !purpose || !date || !time) {
             res.status(400).json({ error: 'Required fields missing' });
             return;
         }
-        const booking = await bookingService_1.bookingService.create({
-            name, email, company, purpose, date, time,
-            duration: duration || 30, notes, address, place,
-            frequency, what, phone, visitorType, userId: req.user.id
-        });
+        // Advisory lock on the exact slot prevents two simultaneous submissions
+        // from both passing the availability check and double-booking.
+        const booking = await (0, database_1.withTransaction)(async (client) => {
+            const conflict = await assertSlotIsFree(date, time, duration);
+            if (conflict) {
+                throw { httpStatus: 409, body: { error: conflict, hasConflict: true } };
+            }
+            return bookingService_1.bookingService.create({
+                name, email, company, purpose, date, time,
+                duration, notes, address, place,
+                frequency, what, phone, visitorType, userId: req.user.id
+            }, client);
+        }, `booking:${date}:${time}:${duration}`);
         await auditService_1.auditService.log({
-            userId: req.user.id, action: 'created', recordType: 'booking',
+            userId: req.user.id, action: 'booking_created', recordType: 'booking',
             recordId: booking.id, newData: booking
         });
-        await notificationService_1.notificationService.notifyOtherUser(req.user.id, 'New Booking Request', `${req.user.fullName} received a booking request from ${name} for ${date} at ${time}`, 'created', 'booking', booking.id, null, booking);
+        await notificationService_1.notificationService.notifyOtherUser(req.user.id, 'New Booking Request', `${req.user.fullName} logged a booking request from ${name} for ${date} at ${time}`, 'created', 'booking', booking.id, null, booking);
         res.status(201).json(booking);
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to create booking' });
     }
 });
-router.patch('/:id/status', async (req, res) => {
+function conflictPayload(conflicts) {
+    return {
+        error: `This time overlaps with ${conflicts.map((c) => `"${c.title}" (${(0, scheduling_1.priorityLabel)(c.priority)})`).join(', ')}`,
+        hasConflict: true,
+        conflicts: conflicts.map((c) => ({
+            id: c.id, title: c.title,
+            startTime: normalizeTime(c.start_time), endTime: normalizeTime(c.end_time),
+            ownerName: c.owner_name, priority: c.priority, priorityLabel: (0, scheduling_1.priorityLabel)(c.priority)
+        })),
+        message: 'Confirm to override the conflict, or reschedule to another time.'
+    };
+}
+async function createCeoMeeting(client, booking, slot, ceoId, override, actorId, reason) {
+    return scheduleService_1.scheduleService.create({
+        title: `Booking: ${booking.purpose}`,
+        description: `Booking from ${booking.booked_by_name}${booking.company ? ` (${booking.company})` : ''}${booking.what ? ` · ${booking.what}` : ''}`,
+        date: slot.date,
+        startTime: slot.time,
+        endTime: slot.endTime,
+        scheduleType: 'client_meeting',
+        location: booking.place || booking.address || 'TBD',
+        participants: [booking.booked_by_name],
+        priority: 'high',
+        reminderMinutes: 15,
+        userId: ceoId,
+        isCeoAppointment: true,
+        bookingId: booking.id,
+        conflictOverride: override,
+        overrideBy: override ? actorId : null,
+        overrideAt: override ? new Date().toISOString() : null,
+        overrideReason: override ? (reason || 'Override confirmed') : null
+    }, client);
+}
+/**
+ * Soumya (coordinator) approves / rejects / reschedules a CEO booking request.
+ * Role is enforced on the server via requireCoordinator - hiding the button is not enough.
+ */
+router.patch('/:id/status', auth_1.requireCoordinator, async (req, res) => {
+    const status = req.body.status;
+    const allowedStatuses = ['accepted', 'rejected', 'rescheduled', 'cancelled'];
+    if (!allowedStatuses.includes(status)) {
+        res.status(400).json({ error: 'Invalid status' });
+        return;
+    }
     try {
-        const oldBooking = await bookingService_1.bookingService.getById(req.params.id);
-        const updated = await bookingService_1.bookingService.updateStatus(req.params.id, req.body.status, req.user.id);
-        if (req.body.status === 'accepted') {
-            await scheduleService_1.scheduleService.create({
-                title: `Booking: ${oldBooking.purpose}`,
-                description: `Booking from ${oldBooking.booked_by_name} (${oldBooking.company || 'N/A'})`,
-                date: oldBooking.booking_date,
-                startTime: oldBooking.preferred_time,
-                endTime: calculateEndTime(oldBooking.preferred_time, oldBooking.duration),
-                scheduleType: 'other',
-                location: 'TBD',
-                participants: [oldBooking.booked_by_name],
-                priority: 'medium',
-                reminderMinutes: 15,
-                userId: req.user.id
+        const outcome = await (0, database_1.withTransaction)(async (client) => {
+            const booking = await bookingService_1.bookingService.getByIdForUpdate(req.params.id, client);
+            if (status === 'rejected' || status === 'cancelled') {
+                if (booking.schedule_id) {
+                    await scheduleService_1.scheduleService.update(booking.schedule_id, { status: 'cancelled' }, req.user.id, client);
+                }
+                const updated = await bookingService_1.bookingService.setApproval(booking.id, {
+                    status, handledBy: req.user.id
+                }, client);
+                return { booking: updated, before: booking, schedule: null, status };
+            }
+            const date = req.body.date || booking.booking_date;
+            const time = normalizeTime(req.body.time || booking.preferred_time);
+            const duration = parseInt(String(req.body.duration || booking.duration || 30), 10) || 30;
+            const endTime = (0, scheduling_1.addMinutes)(time, duration);
+            const windowError = (0, scheduling_1.validateMeetingWindow)(date, time, endTime);
+            if (windowError)
+                throw { httpStatus: 400, body: { error: windowError } };
+            const ceo = await authService_1.authService.getCeo();
+            if (!ceo)
+                throw { httpStatus: 400, body: { error: 'CEO account not found' } };
+            const override = req.body.overrideConflict === true;
+            const conflicts = await scheduleService_1.scheduleService.checkConflict(date, time, endTime, booking.schedule_id, ceo.id, client);
+            if (conflicts.length > 0 && !override) {
+                throw { httpStatus: 409, body: conflictPayload(conflicts) };
+            }
+            let schedule;
+            if (booking.schedule_id) {
+                schedule = await scheduleService_1.scheduleService.update(booking.schedule_id, {
+                    title: `Booking: ${booking.purpose}`,
+                    date,
+                    startTime: time,
+                    endTime,
+                    scheduleType: 'client_meeting',
+                    conflictOverride: override,
+                    overrideBy: override ? req.user.id : null,
+                    overrideAt: override ? new Date().toISOString() : null,
+                    overrideReason: override ? (req.body.reason || 'Override confirmed') : null
+                }, req.user.id, client);
+            }
+            if (!schedule) {
+                schedule = await createCeoMeeting(client, booking, { date, time, endTime }, ceo.id, override, req.user.id, req.body.reason);
+            }
+            const updated = await bookingService_1.bookingService.setApproval(booking.id, {
+                status,
+                scheduleId: schedule.id,
+                approvedBy: req.user.id,
+                handledBy: req.user.id,
+                date, time, duration
+            }, client);
+            return { booking: updated, before: booking, schedule, status };
+        }, `booking:${req.params.id}`);
+        const action = outcome.status === 'rescheduled' ? 'booking_rescheduled'
+            : outcome.status === 'accepted' ? 'booking_approved'
+                : 'booking_rejected';
+        await auditService_1.auditService.log({
+            userId: req.user.id, action, recordType: 'booking',
+            recordId: req.params.id, oldData: outcome.before, newData: outcome.booking
+        });
+        if (outcome.schedule && outcome.booking.schedule_id) {
+            await auditService_1.auditService.log({
+                userId: req.user.id, action: 'schedule_linked', recordType: 'schedule',
+                recordId: outcome.booking.schedule_id, newData: outcome.schedule
             });
         }
-        await auditService_1.auditService.log({
-            userId: req.user.id, action: req.body.status, recordType: 'booking',
-            recordId: req.params.id, oldData: oldBooking, newData: updated
-        });
-        await notificationService_1.notificationService.notifyOtherUser(req.user.id, `Booking ${req.body.status.charAt(0).toUpperCase() + req.body.status.slice(1)}`, `${req.user.fullName} ${req.body.status} booking from ${oldBooking.booked_by_name}`, req.body.status, 'booking', req.params.id, oldBooking, updated);
-        res.json(updated);
+        const verb = outcome.status === 'accepted' ? 'approved'
+            : outcome.status === 'rescheduled' ? 'rescheduled' : 'rejected';
+        await notificationService_1.notificationService.notifyOtherUser(req.user.id, `Booking ${verb.charAt(0).toUpperCase() + verb.slice(1)}`, `${req.user.fullName} ${verb} the booking from ${outcome.before.booked_by_name} (${outcome.booking.booking_date} ${normalizeTime(outcome.booking.preferred_time)})`, outcome.status, 'booking', req.params.id, outcome.before, outcome.booking);
+        res.json({ booking: outcome.booking, schedule: outcome.schedule, conflictOverride: outcome.schedule?.conflict_override === true });
     }
     catch (error) {
+        if (error && error.httpStatus) {
+            res.status(error.httpStatus).json(error.body);
+            return;
+        }
         res.status(500).json({ error: 'Failed to update booking status' });
     }
 });
-function calculateEndTime(startTime, durationMinutes) {
-    const [h, m] = startTime.split(':').map(Number);
-    const totalMinutes = h * 60 + m + durationMinutes;
-    const endH = Math.floor(totalMinutes / 60);
-    const endM = totalMinutes % 60;
-    return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
-}
 exports.default = router;
 //# sourceMappingURL=bookingRoutes.js.map

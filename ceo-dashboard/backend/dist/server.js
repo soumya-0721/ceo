@@ -25,9 +25,10 @@ const PORT = parseInt(process.env.PORT || '3000');
 app.use((0, cors_1.default)({ origin: true, credentials: true }));
 app.use(express_1.default.json());
 app.use((0, cookie_parser_1.default)());
-const staticPath = process.env.VERCEL
-    ? path_1.default.join(process.cwd(), 'public')
-    : path_1.default.join(__dirname, '../../frontend');
+// Single source of truth for the UI: ceo-dashboard/frontend (the public/ copy
+// was removed to stop production serving a stale duplicate). __dirname resolves
+// to ceo-dashboard/backend/dist, so ../../frontend is the frontend directory.
+const staticPath = path_1.default.join(__dirname, '../../frontend');
 app.use(express_1.default.static(staticPath));
 app.use('/api/auth', authRoutes_1.default);
 app.use('/api/schedules', scheduleRoutes_1.default);

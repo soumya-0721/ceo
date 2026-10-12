@@ -25,9 +25,10 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-const staticPath = process.env.VERCEL
-    ? path.join(process.cwd(), 'public')
-    : path.join(__dirname, '../../frontend');
+// Single source of truth for the UI: ceo-dashboard/frontend (the public/ copy
+// was removed to stop production serving a stale duplicate). __dirname resolves
+// to ceo-dashboard/backend/dist, so ../../frontend is the frontend directory.
+const staticPath = path.join(__dirname, '../../frontend');
 
 app.use(express.static(staticPath));
 

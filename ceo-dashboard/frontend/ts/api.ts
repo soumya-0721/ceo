@@ -35,13 +35,16 @@ class ApiService {
 
         const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
 
-        if (response.status === 401 || response.status === 403) {
+        if (response.status === 401) {
             this.clearToken();
             window.location.reload();
             throw new Error('Unauthorized');
         }
 
         const data = await response.json();
+        // 403 is an authorization decision (e.g. reading a schedule you do not
+        // own), not an expired session: surface it to the caller so the UI can
+        // explain it instead of silently reloading the page.
         if (!response.ok) throw { status: response.status, ...data };
         return data;
     }
@@ -89,7 +92,10 @@ class ApiService {
     getBookings(status?: string) { return this.get<any[]>(`/bookings${status ? `?status=${status}` : ''}`); }
     getPendingBookingsCount() { return this.get<any>('/bookings/pending-count'); }
     createBooking(data: any) { return this.post<any>('/bookings', data); }
-    updateBookingStatus(id: string, status: string) { return this.patch<any>(`/bookings/${id}/status`, { status }); }
+    updateBookingStatus(id: string, status: string, extra: any = {}) { return this.patch<any>(`/bookings/${id}/status`, { status, ...extra }); }
+    approveBooking(id: string, extra: any = {}) { return this.updateBookingStatus(id, 'accepted', extra); }
+    rejectBooking(id: string, extra: any = {}) { return this.updateBookingStatus(id, 'rejected', extra); }
+    rescheduleBooking(id: string, extra: any) { return this.updateBookingStatus(id, 'rescheduled', extra); }
 
     // Reminders
     getReminders(status?: string) { return this.get<any[]>(`/reminders${status ? `?status=${status}` : ''}`); }

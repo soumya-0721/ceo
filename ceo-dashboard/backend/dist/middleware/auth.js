@@ -3,9 +3,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.requireCoordinator = void 0;
 exports.authenticateToken = authenticateToken;
 exports.requireCEO = requireCEO;
 exports.requireAuth = requireAuth;
+exports.requireRole = requireRole;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const env_1 = require("../config/env");
 function authenticateToken(req, res, next) {
@@ -37,4 +39,20 @@ function requireAuth(req, res, next) {
     }
     next();
 }
+/** Restrict a route to one or more roles. Must run after authenticateToken. */
+function requireRole(...roles) {
+    return (req, res, next) => {
+        if (!req.user) {
+            res.status(401).json({ error: 'Authentication required.' });
+            return;
+        }
+        if (!roles.includes(req.user.role)) {
+            res.status(403).json({ error: 'You do not have permission to perform this action.' });
+            return;
+        }
+        next();
+    };
+}
+/** External CEO booking requests may only be approved/rejected/rescheduled by the coordinator. */
+exports.requireCoordinator = requireRole('coordinator');
 //# sourceMappingURL=auth.js.map

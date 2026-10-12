@@ -503,14 +503,6 @@
                     var msg = result.message || result.error || 'Failed to submit booking request.';
                     if (response.status === 409) {
                         resetSelection();
-            // Refresh slots when the visitor comes back (e.g. after adding a schedule in the dashboard)
-            function refreshIfVisible() {
-                if (!document.hidden && document.getElementById('preferredDate').value) loadSlots();
-            }
-            document.addEventListener('visibilitychange', refreshIfVisible);
-            window.addEventListener('pageshow', refreshIfVisible);
-
-            loadSlots();
                     }
                     throw new Error(msg);
                 } catch (error) {
@@ -521,7 +513,14 @@
                     submitBtn.innerHTML = '<i class="bi bi-calendar-plus me-2"></i>Request Booking';
                 }
             });
-            
+
+            // Refresh slots when the visitor comes back (e.g. after adding a schedule in the dashboard)
+            function refreshIfVisible() {
+                if (!document.hidden && document.getElementById('preferredDate').value) loadSlots();
+            }
+            document.addEventListener('visibilitychange', refreshIfVisible);
+            window.addEventListener('pageshow', refreshIfVisible);
+
             loadSlots();
         });
     </script>

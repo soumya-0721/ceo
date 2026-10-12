@@ -1,4 +1,3 @@
-"use strict";
 let currentUser = null;
 let currentPage = 'dashboard';
 let currentPageDate = new Date();
@@ -934,8 +933,49 @@ async function exportScheduleCsv() {
     }
 }
 function statusBadge(status) {
-    const cls = status === 'accepted' ? 'bg-success' : status === 'pending' ? 'bg-warning' : status === 'rejected' ? 'bg-danger' : 'bg-secondary';
-    return `<span class="badge ${cls}">${status || 'pending'}</span>`;
+    const map = {
+        accepted: { cls: 'bg-success', label: 'Approved' },
+        pending: { cls: 'bg-warning text-dark', label: 'Pending' },
+        rejected: { cls: 'bg-danger', label: 'Rejected' },
+        rescheduled: { cls: 'bg-info text-dark', label: 'Rescheduled' },
+        cancelled: { cls: 'bg-secondary', label: 'Cancelled' }
+    };
+    const m = map[status] || { cls: 'bg-secondary', label: status || 'pending' };
+    return `<span class="badge ${m.cls}">${m.label}</span>`;
+}
+function priorityLabel(p) {
+    const map = { low: 'Low', medium: 'Normal', high: 'High', urgent: 'Critical' };
+    return map[p] || 'Normal';
+}
+/** Plain-text booking status label for tooltips (statusBadge renders HTML). */
+function statusLabel(status) {
+    const map = {
+        accepted: 'Approved', pending: 'Pending', rejected: 'Rejected',
+        rescheduled: 'Rescheduled', cancelled: 'Cancelled'
+    };
+    return map[status] || status || 'pending';
+}
+function priorityBadge(p) {
+    const map = {
+        low: 'background:#EEF2F0;color:#5b6b62;',
+        medium: 'background:#E3F2FD;color:#1565C0;',
+        high: 'background:#FFF3E0;color:#E65100;',
+        urgent: 'background:#FDECEA;color:#C62828;'
+    };
+    return `<span class="badge" style="${map[p] || map.medium}">${priorityLabel(p)}</span>`;
+}
+function isCoordinator() {
+    return currentUser?.role === 'coordinator';
+}
+/** Minute-based overlap between two HH:MM strings. */
+function timesOverlap(aStart, aEnd, bStart, bEnd) {
+    const toMin = (t) => { const [h, m] = (t || '0:0').substring(0, 5).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+    return toMin(aStart) < toMin(bEnd) && toMin(bStart) < toMin(aEnd);
+}
+function addMinutesStr(time, mins) {
+    const [h, m] = (time || '0:0').substring(0, 5).split(':').map(Number);
+    const total = (h || 0) * 60 + (m || 0) + (mins || 0);
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 async function renderSchedule() {
     const wrapper = document.getElementById('content-wrapper');
@@ -948,7 +988,9 @@ async function renderSchedule() {
     try {
         const [overview, schedules, bookings] = await Promise.all([
             api.getWeekOverview(weekStart, weekEnd),
-            api.getSchedules(undefined, weekStart, weekEnd, 'all'),
+            // The CEO only sees the CEO calendar; the coordinator sees the shared
+            // coordination view (her own entries + everything on the CEO's calendar).
+            api.getSchedules(undefined, weekStart, weekEnd, currentUser?.role === 'ceo' ? 'mine' : 'all'),
             api.getBookings()
         ]);
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -985,6 +1027,25 @@ async function renderSchedule() {
                     <i class="bi bi-chevron-right" style="color:var(--text-muted);font-size:12px;"></i>
                 </div>
             </div>`;
+        // Minute-based overlap map across schedules + active bookings for the week,
+        // so conflicting meetings are flagged instead of silently overlapping.
+        const conflictMap = {};
+        overview.days.forEach((day) => {
+            const evts = [
+                ...schedules.filter((s) => s.schedule_date === day.date)
+                    .map((s) => ({ id: s.id, title: s.title, start: s.start_time, end: s.end_time })),
+                ...bookings.filter((b) => b.booking_date === day.date && activeStatuses.includes(b.status))
+                    .map((b) => ({ id: b.id, title: `Booking: ${b.booked_by_name}`, start: b.preferred_time, end: addMinutesStr(b.preferred_time, b.duration || 30) }))
+            ];
+            evts.forEach((e, i) => {
+                evts.forEach((o, j) => {
+                    if (i < j && timesOverlap(e.start, e.end, o.start, o.end)) {
+                        (conflictMap[e.id] = conflictMap[e.id] || []).push(o.title);
+                        (conflictMap[o.id] = conflictMap[o.id] || []).push(e.title);
+                    }
+                });
+            });
+        });
         const weekColumns = overview.days.map((day) => {
             const isToday = day.date === todayKey;
             const daySchedules = schedules.filter((s) => s.schedule_date === day.date);
@@ -994,28 +1055,39 @@ async function renderSchedule() {
                 : (day.workingMinutes === 0 ? 'Closed' : 'Fully booked');
             const eventsHtml = daySchedules.map((s) => {
                 const color = typeColors[s.schedule_type] || typeColors.other;
-                const isMine = s.created_by === currentUser?.id;
-                const owner = !isMine && s.creator_name ? `<div class="week-event-owner">${s.creator_name.split(' ')[0]}</div>` : '';
+                const isCeo = s.is_ceo_appointment === true;
+                const conflictList = conflictMap[s.id] || [];
+                const conflictChip = conflictList.length
+                    ? `<div class="week-event-conflict-chip" title="Overlaps: ${conflictList.join(', ')}"><i class="bi bi-exclamation-triangle-fill"></i> overlap</div>`
+                    : '';
                 return `
-                    <div class="week-event" onclick="editSchedule('${s.id}')"
-                        title="${s.title}${s.location ? '\nAt: ' + s.location : ''}${s.description ? '\n' + s.description : ''}">
+                    <div class="week-event${isCeo ? ' is-ceo' : ''}${conflictList.length ? ' is-conflict' : ''}" onclick="editSchedule('${s.id}')"
+                        title="${s.title}${s.location ? '\nAt: ' + s.location : ''}${s.description ? '\n' + s.description : ''}${conflictList.length ? '\nOverlaps: ' + conflictList.join(', ') : ''}">
                         <span class="week-event-bar" style="background:${color};"></span>
                         <div class="week-event-body">
-                            <div class="week-event-time">${formatTime12(s.start_time?.substring(0, 5))}</div>
-                            <div class="week-event-title">${s.title}</div>
-                            ${owner}
+                            <div class="week-event-time">${formatTime12(s.start_time?.substring(0, 5))} ${priorityBadge(s.priority)}</div>
+                            <div class="week-event-title">${s.title}${isCeo ? ' <span class="week-event-ceo">CEO</span>' : ''}</div>
+                            <div class="week-event-owner">${isCeo ? 'CEO appointment' : (s.creator_name || '')}</div>
+                            ${conflictChip}
                         </div>
                     </div>`;
             }).join('');
-            const bookingsHtml = dayBookings.map((b) => `
-                <div class="week-event is-booking" onclick="viewAppointmentDetails('${b.id}')" title="Appointment with ${b.booked_by_name}">
+            const bookingsHtml = dayBookings.map((b) => {
+                const conflictList = conflictMap[b.id] || [];
+                const conflictChip = conflictList.length
+                    ? `<div class="week-event-conflict-chip" title="Overlaps: ${conflictList.join(', ')}"><i class="bi bi-exclamation-triangle-fill"></i> overlap</div>`
+                    : '';
+                return `
+                <div class="week-event is-booking${b.status === 'pending' ? ' is-pending' : ''}${conflictList.length ? ' is-conflict' : ''}" onclick="viewAppointmentDetails('${b.id}')" title="Appointment with ${b.booked_by_name}${conflictList.length ? '\nOverlaps: ' + conflictList.join(', ') : ''}">
                     <span class="week-event-bar" style="background:var(--gold);"></span>
                     <div class="week-event-body">
-                        <div class="week-event-time">${formatTime12(b.preferred_time?.substring(0, 5))}</div>
+                        <div class="week-event-time">${formatTime12(b.preferred_time?.substring(0, 5))} ${statusBadge(b.status)}</div>
                         <div class="week-event-title">${b.booked_by_name}</div>
-                        <div class="week-event-owner">Appointment</div>
+                        <div class="week-event-owner">${b.status === 'pending' ? 'Awaiting approval' : 'Appointment'}</div>
+                        ${conflictChip}
                     </div>
-                </div>`).join('');
+                </div>`;
+            }).join('');
             return `
                 <div class="week-col${isToday ? ' is-today' : ''}">
                     <div class="week-day-head">
@@ -1118,7 +1190,7 @@ async function renderSchedule() {
         wrapper.innerHTML = '<div class="alert alert-danger">Failed to load schedule</div>';
     }
 }
-async function viewAppointmentDetails(id) {
+async function viewAppointmentDetails(id, conflict) {
     try {
         const b = await api.get(`/bookings/${id}`);
         const modal = new window.bootstrap.Modal(document.getElementById('appointmentModal'));
@@ -1127,6 +1199,19 @@ async function viewAppointmentDetails(id) {
                 <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);font-weight:600;margin-bottom:3px;">${label}</div>
                 <div style="font-size:13.5px;color:var(--text);font-weight:500;">${value || '—'}</div>
             </div>`;
+        const conflictList = (conflict?.conflicts || [])
+            .map((c) => `&bull; <strong>${c.title}</strong> (${c.priorityLabel || priorityLabel(c.priority)}) ${formatTime12(c.startTime)}-${formatTime12(c.endTime)}${c.ownerName ? ' \u2014 ' + c.ownerName : ''}`)
+            .join('<br>');
+        const conflictBlock = conflict ? `
+            <div class="alert alert-warning mb-3">
+                <strong><i class="bi bi-exclamation-triangle me-1"></i>Approving this booking would overlap an existing CEO meeting.</strong>
+                <div class="mt-1" style="font-size:12.5px;">${conflict.conflicts?.length ? conflict.conflicts.map((c) => `&bull; <strong>${c.title}</strong> (${c.priorityLabel || priorityLabel(c.priority)}) ${formatTime12(c.startTime)}-${formatTime12(c.endTime)}${c.ownerName ? ' \u2014 ' + c.ownerName : ''}`).join('<br>') : (conflict.error || 'Time conflict detected')}</div>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-sm btn-outline-forest" onclick="openRescheduleModal('${b.id}','${b.booking_date}','${(b.preferred_time || '').substring(0, 5)}',${b.duration || 30})"><i class="bi bi-calendar-event me-1"></i>Reschedule</button>
+                    <button class="btn btn-sm btn-danger" onclick="confirmOverrideApprove('${b.id}')"><i class="bi bi-exclamation-triangle me-1"></i>Override &amp; Approve</button>
+                </div>
+            </div>` : '';
         document.getElementById('appt-modal-body').innerHTML = `
             <div class="d-flex align-items-center justify-content-between mb-3 pb-3" style="border-bottom:1px solid var(--border-light);">
                 <div>
@@ -1135,9 +1220,11 @@ async function viewAppointmentDetails(id) {
                 </div>
                 ${statusBadge(b.status)}
             </div>
+            ${conflictBlock}
             <div class="row">
                 ${row('Date', `${b.booking_date} (${keyToDate(b.booking_date).toLocaleDateString('en-US', { weekday: 'long' })})`)}
                 ${row('Time', `${formatTime12(b.preferred_time?.substring(0, 5))} · ${b.duration || 30} min`)}
+                ${row('Priority', b.schedule_priority ? priorityBadge(b.schedule_priority) : 'Set when the meeting is scheduled')}
                 ${row('Email', b.email || b.booked_by_email)}
                 ${row('Phone', b.phone)}
                 ${row('Company / Organization', b.company)}
@@ -1149,11 +1236,17 @@ async function viewAppointmentDetails(id) {
                 ${row('Purpose', b.purpose)}
                 ${row('Additional Notes', b.notes)}
             </div>
+            <div class="d-flex justify-content-between align-items-center mb-3 pb-3" style="border-top:1px solid var(--border-light);padding-top:14px;">
+                <span style="font-size:12px;color:var(--text-muted);">${b.status === 'pending' ? 'This request is awaiting the coordinator\u2019s approval.' : (b.status === 'accepted' ? 'Approved \u00b7 added to the CEO calendar.' : (b.status === 'rescheduled' ? 'Rescheduled \u00b7 CEO calendar updated.' : 'Not a confirmed meeting.'))}</span>
+            </div>
             <div class="modal-footer px-0 pb-0 mt-2" style="border-top:none;">
                 <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-                ${b.status === 'pending' ? `
-                    <button class="btn btn-sm btn-outline-danger" onclick="setAppointmentStatus('${b.id}','rejected')"><i class="bi bi-x-lg me-1"></i>Reject</button>
-                    <button class="btn btn-sm btn-gold" onclick="setAppointmentStatus('${b.id}','accepted')"><i class="bi bi-check-lg me-1"></i>Accept</button>
+                ${isCoordinator() && !conflict ? `
+                    <button class="btn btn-sm btn-outline-forest" onclick="openRescheduleModal('${b.id}','${b.booking_date}','${(b.preferred_time || '').substring(0, 5)}',${b.duration || 30})"><i class="bi bi-calendar-event me-1"></i>Reschedule</button>
+                    ${b.status === 'pending' ? `
+                        <button class="btn btn-sm btn-outline-danger" onclick="setAppointmentStatus('${b.id}','rejected')"><i class="bi bi-x-lg me-1"></i>Reject</button>
+                        <button class="btn btn-sm btn-gold" onclick="setAppointmentStatus('${b.id}','accepted')"><i class="bi bi-check-lg me-1"></i>Approve</button>
+                    ` : ''}
                 ` : ''}
             </div>
         `;
@@ -1163,18 +1256,90 @@ async function viewAppointmentDetails(id) {
         showToast('Failed to load appointment', 'danger');
     }
 }
+/** Confirmed override-and-approve after an explicit confirmation. */
+async function confirmOverrideApprove(id) {
+    if (!confirm('Override the conflict and approve this booking? The override is recorded in the audit trail.'))
+        return;
+    try {
+        await api.updateBookingStatus(id, 'accepted', { overrideConflict: true });
+        bootstrap.Modal.getInstance(document.getElementById('appointmentModal'))?.hide();
+        showToast('Booking approved with conflict override');
+        if (currentPage === 'bookings')
+            renderBookings();
+        else if (currentPage === 'schedule')
+            renderSchedule();
+        else if (currentPage === 'calendar')
+            renderCalendar();
+    }
+    catch (err) {
+        showToast(err.error || 'Failed to approve booking', 'danger');
+    }
+}
 async function setAppointmentStatus(id, status) {
     try {
         await api.updateBookingStatus(id, status);
         bootstrap.Modal.getInstance(document.getElementById('appointmentModal'))?.hide();
-        showToast(`Appointment ${status}`);
+        showToast(status === 'accepted' ? 'Booking approved' : `Appointment ${status}`);
         if (currentPage === 'schedule')
             renderSchedule();
         else if (currentPage === 'bookings')
             renderBookings();
     }
     catch (err) {
-        showToast(err.error || 'Failed to update appointment', 'danger');
+        if (err.hasConflict) {
+            showToast('This booking overlaps an existing meeting', 'warning');
+            viewAppointmentDetails(id, err);
+        }
+        else {
+            showToast(err.error || 'Failed to update appointment', 'danger');
+        }
+    }
+}
+function openRescheduleModal(id, date, time, duration) {
+    document.getElementById('res-id').value = id;
+    document.getElementById('res-date').value = date || dateToKey(new Date());
+    document.getElementById('res-time').value = (time || '09:00').substring(0, 5);
+    document.getElementById('res-duration').value = String(duration || 30);
+    document.getElementById('res-reason').value = '';
+    document.getElementById('res-conflict-alert').classList.add('d-none');
+    document.getElementById('res-summary').textContent = 'Move this booking to a new time. If it overlaps an existing CEO meeting you will be asked to confirm.';
+    bootstrap.Modal.getInstance(document.getElementById('appointmentModal'))?.hide();
+    new window.bootstrap.Modal(document.getElementById('rescheduleModal')).show();
+}
+async function submitReschedule(overrideConflict) {
+    const id = document.getElementById('res-id').value;
+    const date = document.getElementById('res-date').value;
+    const time = document.getElementById('res-time').value;
+    const duration = parseInt(document.getElementById('res-duration').value);
+    const reason = document.getElementById('res-reason').value;
+    const alert = document.getElementById('res-conflict-alert');
+    if (!date || !time) {
+        showToast('Please choose a date and time', 'warning');
+        return;
+    }
+    try {
+        await api.rescheduleBooking(id, { date, time, duration, reason, overrideConflict });
+        bootstrap.Modal.getInstance(document.getElementById('rescheduleModal'))?.hide();
+        showToast(overrideConflict ? 'Rescheduled (conflict override recorded)' : 'Booking rescheduled');
+        if (currentPage === 'schedule')
+            renderSchedule();
+        else if (currentPage === 'bookings')
+            renderBookings();
+    }
+    catch (err) {
+        if (err.hasConflict) {
+            const list = (err.conflicts || []).map((c) => `&bull; <strong>${c.title}</strong> (${c.priorityLabel || c.priority}) ${formatTime12(c.startTime)}-${formatTime12(c.endTime)}`).join('<br>');
+            alert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i><strong>${err.error || 'Conflict'}</strong><br>${list}
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="window.bootstrap?.Modal?.getInstance(document.getElementById('rescheduleModal'))?.hide()">Cancel</button>
+                    <button class="btn btn-sm btn-outline-forest" onclick="document.getElementById('res-conflict-alert').classList.add('d-none');document.getElementById('res-time').focus()">Adjust Time</button>
+                    <button class="btn btn-sm btn-danger" onclick="confirmAndOverrideReschedule()"><i class="bi bi-exclamation-triangle me-1"></i>Override and reschedule</button>
+                </div>`;
+            alert.classList.remove('d-none');
+        }
+        else {
+            showToast(err.error || 'Failed to reschedule', 'danger');
+        }
     }
 }
 // ===== Calendar Page =====
@@ -1188,7 +1353,30 @@ async function renderCalendar() {
     const startDate = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
     const endDate = `${year}-${(month + 1).toString().padStart(2, '0')}-${daysInMonth.toString().padStart(2, '0')}`;
     try {
-        const schedules = await api.getSchedules(undefined, startDate, endDate);
+        const [schedules, bookings] = await Promise.all([
+            api.getSchedules(undefined, startDate, endDate, currentUser?.role === 'ceo' ? 'mine' : 'all'),
+            api.getBookings()
+        ]);
+        // Overlap detection across the month for confirmed appointments + active
+        // booking requests, using the same minute-based rule as the week view.
+        const activeStatuses = ['pending', 'accepted'];
+        const conflictMap = {};
+        const monthEvents = [
+            ...schedules.map((s) => ({ id: s.id, date: s.schedule_date, start: s.start_time, end: s.end_time, title: s.title })),
+            ...bookings.filter((b) => activeStatuses.includes(b.status))
+                .map((b) => ({ id: b.id, date: b.booking_date, start: b.preferred_time, end: addMinutesStr(b.preferred_time, b.duration || 30), title: `Booking: ${b.booked_by_name}` }))
+        ];
+        const eventsByDate = {};
+        monthEvents.forEach((e) => { (eventsByDate[e.date] = eventsByDate[e.date] || []).push(e); });
+        Object.keys(eventsByDate).forEach(dateKey => {
+            const list = eventsByDate[dateKey];
+            list.forEach((e, i) => list.forEach((o, j) => {
+                if (i < j && timesOverlap(e.start, e.end, o.start, o.end)) {
+                    (conflictMap[e.id] = conflictMap[e.id] || []).push(o.title);
+                    (conflictMap[o.id] = conflictMap[o.id] || []).push(e.title);
+                }
+            }));
+        });
         const monthName = currentPageDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         let daysHtml = '';
@@ -1199,13 +1387,30 @@ async function renderCalendar() {
             const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
             const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
             const daySchedules = schedules.filter((s) => s.schedule_date === dateStr);
+            const dayBookings = bookings.filter((b) => b.booking_date === dateStr && activeStatuses.includes(b.status));
+            const scheduleItems = daySchedules.map((s) => {
+                const overlaps = conflictMap[s.id] || [];
+                const conflict = overlaps.length > 0;
+                const tip = `${s.title}\n${formatTime12(s.start_time?.substring(0, 5))}-${formatTime12(s.end_time?.substring(0, 5))}\n${priorityLabel(s.priority)} priority${s.location ? '\nAt: ' + s.location : ''}${conflict ? '\nOverlaps: ' + overlaps.join(', ') : ''}`;
+                return `<div class="calendar-event meeting${s.is_ceo_appointment ? ' is-ceo' : ''}${conflict ? ' is-conflict' : ''}" title="${tip}" onclick="event.stopPropagation();editSchedule('${s.id}')">
+                    <span class="priority-dot ${s.priority || 'medium'}"></span>
+                    <span class="cal-event-time">${formatTime12(s.start_time?.substring(0, 5))}</span> ${s.title}${s.is_ceo_appointment ? ' <span class="week-event-ceo">CEO</span>' : ''}${conflict ? ' <i class="bi bi-exclamation-triangle-fill conflict-icon"></i>' : ''}
+                </div>`;
+            });
+            const bookingItems = dayBookings.map((b) => {
+                const overlaps = conflictMap[b.id] || [];
+                const conflict = overlaps.length > 0;
+                const tip = `Appointment: ${b.booked_by_name}\n${formatTime12(b.preferred_time?.substring(0, 5))} · ${b.duration || 30} min\nStatus: ${statusLabel(b.status)}${conflict ? '\nOverlaps: ' + overlaps.join(', ') : ''}`;
+                return `
+                    <div class="calendar-event meeting is-booking${conflict ? ' is-conflict' : ''}" title="${tip}" onclick="event.stopPropagation();viewAppointmentDetails('${b.id}')">${formatTime12(b.preferred_time?.substring(0, 5))} ${b.booked_by_name}${conflict ? ' <i class="bi bi-exclamation-triangle-fill"></i>' : ''}</div>
+                `;
+            });
+            const items = [...scheduleItems, ...bookingItems];
             daysHtml += `
                 <div class="calendar-day ${isToday ? 'today' : ''}" onclick="currentPageDate=new Date(${year},${month},${d});openScheduleModal(null,null,'${dateStr}')">
                     <div class="day-number">${d}</div>
-                    ${daySchedules.slice(0, 3).map((s) => `
-                        <div class="calendar-event meeting" title="${s.title}${s.participants?.length ? '\nWith: ' + (Array.isArray(s.participants) ? s.participants.join(', ') : s.participants) : ''}${s.location ? '\nAt: ' + s.location : ''}${s.description ? '\nNote: ' + s.description : ''}" onclick="event.stopPropagation();editSchedule('${s.id}')">${formatTime12(s.start_time?.substring(0, 5))} ${s.title}${s.participants?.length ? ' <i class="bi bi-people" style="font-size:9px"></i>' : ''}</div>
-                    `).join('')}
-                    ${daySchedules.length > 3 ? `<div style="font-size:10px;color:#888">+${daySchedules.length - 3} more</div>` : ''}
+                    ${items.slice(0, 3).join('')}
+                    ${items.length > 3 ? `<div style="font-size:10px;color:#888">+${items.length - 3} more</div>` : ''}
                 </div>`;
         }
         wrapper.innerHTML = `
@@ -1307,18 +1512,20 @@ async function renderBookings() {
                 </div>
                 <button class="btn btn-gold" onclick="openBookingModal()"><i class="bi bi-plus-lg me-1"></i>New Booking</button>
             </div>
-            <div class="d-flex gap-2 mb-3">
+            <div class="d-flex gap-2 mb-3 flex-wrap">
                 <button class="btn btn-sm btn-outline-forest active" onclick="filterBookings('all',this)">All</button>
                 <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('pending',this)">Pending</button>
-                <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('accepted',this)">Accepted</button>
+                <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('accepted',this)">Approved</button>
+                <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('rescheduled',this)">Rescheduled</button>
                 <button class="btn btn-sm btn-outline-forest" onclick="filterBookings('rejected',this)">Rejected</button>
             </div>
+            ${isCoordinator() ? '' : '<div class="alert alert-info py-2" style="font-size:12.5px;"><i class="bi bi-info-circle me-1"></i>Booking requests are approved by the coordinator (Soumya).</div>'}
             <div class="card-premium">
                 <div class="card-body p-0">
                     ${bookings.length === 0 ? showEmptyState('bi-calendar-check', 'No bookings yet') : `
                     <div class="table-responsive">
                         <table class="table table-premium mb-0">
-                            <thead><tr><th>Name</th><th>Company</th><th>Date</th><th>Time</th><th>Purpose</th><th>Status</th><th>Actions</th></tr></thead>
+                            <thead><tr><th>Name</th><th>Company</th><th>Date</th><th>Time</th><th>Purpose</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead>
                             <tbody>
                                 ${bookings.map((b) => `
                                     <tr data-status="${b.status}">
@@ -1327,11 +1534,16 @@ async function renderBookings() {
                                         <td>${b.booking_date}</td>
                                         <td>${formatTime12(b.preferred_time?.substring(0, 5))}</td>
                                         <td>${b.purpose?.substring(0, 30)}${b.purpose?.length > 30 ? '...' : ''}</td>
-                                        <td><span class="badge ${b.status === 'accepted' ? 'bg-success' : b.status === 'pending' ? 'bg-warning' : b.status === 'rejected' ? 'bg-danger' : 'bg-secondary'}">${b.status}</span></td>
-                                        <td>
-                                            ${b.status === 'pending' ? `
-                                                <button class="btn btn-sm btn-outline-success me-1" onclick="handleBooking('${b.id}','accepted')"><i class="bi bi-check"></i></button>
-                                                <button class="btn btn-sm btn-outline-danger" onclick="handleBooking('${b.id}','rejected')"><i class="bi bi-x"></i></button>
+                                        <td>${b.schedule_priority ? priorityBadge(b.schedule_priority) : '<span class="text-muted" title="Priority is set when the meeting is scheduled">—</span>'}</td>
+                                        <td>${statusBadge(b.status)}</td>
+                                        <td class="text-nowrap">
+                                            <button class="btn btn-sm btn-outline-forest me-1" title="View details" onclick="viewAppointmentDetails('${b.id}')"><i class="bi bi-eye"></i></button>
+                                            ${isCoordinator() ? `
+                                                ${b.status === 'pending' ? `
+                                                    <button class="btn btn-sm btn-outline-success me-1" title="Approve" onclick="handleBooking('${b.id}','accepted')"><i class="bi bi-check"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger me-1" title="Reject" onclick="handleBooking('${b.id}','rejected')"><i class="bi bi-x"></i></button>
+                                                ` : ''}
+                                                <button class="btn btn-sm btn-outline-forest" title="Reschedule" onclick="openRescheduleModal('${b.id}','${b.booking_date}','${(b.preferred_time || '').substring(0, 5)}',${b.duration || 30})"><i class="bi bi-calendar-event"></i></button>
                                             ` : ''}
                                         </td>
                                     </tr>
@@ -1358,11 +1570,17 @@ async function handleBooking(id, status) {
     try {
         await api.updateBookingStatus(id, status);
         const who = currentUser?.fullName || currentUser?.full_name || 'User';
-        showToast(`Booking ${status} by ${who}`);
+        showToast(status === 'accepted' ? `Booking approved by ${who}` : `Booking ${status} by ${who}`);
         renderBookings();
     }
     catch (err) {
-        showToast(err.error || 'Failed', 'danger');
+        if (err.hasConflict) {
+            showToast('This approval overlaps an existing meeting', 'warning');
+            viewAppointmentDetails(id, err);
+        }
+        else {
+            showToast(err.error || 'Failed', 'danger');
+        }
     }
 }
 // ===== Reminders Page =====
@@ -1772,6 +1990,7 @@ function openScheduleModal(schedule, defaultTime, defaultDate) {
     document.getElementById('sch-priority').value = schedule?.priority || 'medium';
     document.getElementById('sch-reminder').value = schedule?.reminder_minutes || '15';
     document.getElementById('sch-status').value = schedule?.status || 'active';
+    document.getElementById('sch-ceo-appt').checked = schedule?.is_ceo_appointment === true;
     document.getElementById('conflict-alert').classList.add('d-none');
     modal.show();
 }
@@ -1825,7 +2044,7 @@ document.getElementById('sch-start')?.addEventListener('change', (e) => {
     }
 });
 // ===== Modal Save Handlers =====
-document.getElementById('save-schedule-btn')?.addEventListener('click', async () => {
+async function saveScheduleForm(overrideConflict) {
     const id = document.getElementById('sch-id').value;
     const data = {
         title: document.getElementById('sch-title').value,
@@ -1839,19 +2058,25 @@ document.getElementById('save-schedule-btn')?.addEventListener('click', async ()
         priority: document.getElementById('sch-priority').value,
         reminderMinutes: parseInt(document.getElementById('sch-reminder').value),
         status: document.getElementById('sch-status').value,
+        isCeoAppointment: document.getElementById('sch-ceo-appt')?.checked === true,
+        overrideConflict: overrideConflict
     };
     if (!data.title || !data.date || !data.startTime || !data.endTime) {
         showToast('Please fill required fields', 'warning');
         return;
     }
+    if (data.endTime <= data.startTime) {
+        showToast('End time must be after start time', 'warning');
+        return;
+    }
     try {
         if (id) {
             await api.updateSchedule(id, data);
-            showToast('Schedule updated');
+            showToast(overrideConflict ? 'Saved with conflict override' : 'Schedule updated');
         }
         else {
             await api.createSchedule(data);
-            showToast('Schedule created');
+            showToast(overrideConflict ? 'Created with conflict override' : 'Schedule created');
         }
         bootstrap.Modal.getInstance(document.getElementById('scheduleModal'))?.hide();
         if (currentPage === 'dashboard')
@@ -1864,18 +2089,47 @@ document.getElementById('save-schedule-btn')?.addEventListener('click', async ()
     catch (err) {
         if (err.hasConflict) {
             const alert = document.getElementById('conflict-alert');
+            const list = (err.conflicts || []).map((c) => `&bull; <strong>${c.title}</strong> (${c.priorityLabel || c.priority}) ${formatTime12(c.startTime)}-${formatTime12(c.endTime)}${c.ownerName ? ' \u2014 ' + c.ownerName : ''}`).join('<br>');
             let slotsHtml = '';
             if (err.suggestedSlots?.length) {
-                slotsHtml = '<br><strong>Suggested slots:</strong> ' + err.suggestedSlots.map((s) => `${formatTime12(s.start_time || s.start)} - ${formatTime12(s.end_time || s.end)}`).join(', ');
+                slotsHtml = '<div class="mt-2" style="font-size:12px;"><strong>Suggested slots:</strong> ' + err.suggestedSlots.map((s) => `${formatTime12(s.start_time || s.start)}-${formatTime12(s.end_time || s.end)}`).join(', ') + '</div>';
             }
-            alert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${err.error || 'Time conflict detected'}${slotsHtml}`;
+            alert.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i><strong>${err.error || 'Time conflict detected'}</strong><br>${list}${slotsHtml}
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="closeScheduleModal()">Cancel</button>
+                    <button class="btn btn-sm btn-outline-forest" onclick="adjustScheduleTime()"><i class="bi bi-pencil me-1"></i>Adjust Time</button>
+                    <button class="btn btn-sm btn-danger" onclick="confirmAndOverrideSave()"><i class="bi bi-exclamation-triangle me-1"></i>Override Conflict &amp; Save</button>
+                </div>`;
             alert.classList.remove('d-none');
         }
         else {
             showToast(err.error || 'Failed to save', 'danger');
         }
     }
-});
+}
+document.getElementById('save-schedule-btn')?.addEventListener('click', () => saveScheduleForm(false));
+// ===== Conflict handling actions =====
+function closeScheduleModal() {
+    window.bootstrap?.Modal?.getInstance(document.getElementById('scheduleModal'))?.hide();
+}
+/** Dismiss the warning and let the user pick a different time. */
+function adjustScheduleTime() {
+    const alert = document.getElementById('conflict-alert');
+    alert.classList.add('d-none');
+    alert.innerHTML = '';
+    document.getElementById('sch-start')?.focus();
+}
+/** Overriding a conflict requires an explicit confirmation before saving. */
+function confirmAndOverrideSave() {
+    if (window.confirm('This meeting overlaps another meeting. Save it anyway and record the override in the audit trail?')) {
+        saveScheduleForm(true);
+    }
+}
+function confirmAndOverrideReschedule() {
+    if (window.confirm('This new time overlaps an existing CEO meeting. Reschedule anyway and record the override in the audit trail?')) {
+        submitReschedule(true);
+    }
+}
 document.getElementById('save-booking-btn')?.addEventListener('click', async () => {
     const data = {
         name: document.getElementById('bk-name').value,
@@ -1988,6 +2242,7 @@ document.getElementById('save-focus-btn')?.addEventListener('click', async () =>
         showToast(err.error || 'Failed', 'danger');
     }
 });
+document.getElementById('save-reschedule-btn')?.addEventListener('click', () => submitReschedule(false));
 // ===== Edit helpers =====
 async function editSchedule(id) {
     try {

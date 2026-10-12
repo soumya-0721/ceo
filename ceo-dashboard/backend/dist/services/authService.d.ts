@@ -12,5 +12,7 @@ export declare class AuthService {
     }>;
     getUserById(id: string): Promise<any>;
     getAllUsers(): Promise<any[]>;
+    /** The CEO account. Used to attribute appointments created on the CEO's behalf. */
+    getCeo(): Promise<any>;
 }
 export declare const authService: AuthService;

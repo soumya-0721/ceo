@@ -1,15 +1,17 @@
 import { Router, Response } from 'express';
 import { scheduleService } from '../services/scheduleService';
-import { slotService, todayStr, toMinutes } from '../services/slotService';
+import { authService } from '../services/authService';
+import { slotService, todayStr } from '../services/slotService';
 import { notificationService } from '../services/notificationService';
 import { auditService } from '../services/auditService';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { withTransaction } from '../config/database';
+import { normalizePriority, validateMeetingWindow, priorityLabel, scheduleAdvisoryKey, canManageSchedule, canReadSchedule, resolveScheduleScope, overrideDecision, buildOverrideFields } from '../lib/scheduling';
 
 const router = Router();
 router.use(authenticateToken);
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
 
 function normalizeTime(time: string): string {
     return (time || '').substring(0, 5);
@@ -19,35 +21,51 @@ function validateScheduleInput(body: any): string | null {
     if (!body.title || !String(body.title).trim()) return 'Title is required';
     if (!body.date || !DATE_RE.test(body.date)) return 'A valid date is required';
     if (!body.startTime || !body.endTime) return 'Start time and end time are required';
-    if (!TIME_RE.test(body.startTime) || !TIME_RE.test(body.endTime)) return 'Start time and end time must be valid times';
-
-    const start = normalizeTime(body.startTime);
-    const end = normalizeTime(body.endTime);
-    if (toMinutes(end) <= toMinutes(start)) return 'End time must be after start time';
-    return null;
+    return validateMeetingWindow(body.date, normalizeTime(body.startTime), normalizeTime(body.endTime));
 }
 
-/** 409 payload used by the frontend conflict alert inside the schedule modal. */
-async function conflictResponse(date: string, startTime: string, endTime: string, excludeId: string | undefined, res: Response) {
-    const conflicts = await scheduleService.checkConflict(date, startTime, endTime, excludeId);
-    if (conflicts.length === 0) return false;
+function wantsCeoAppointment(body: any): boolean {
+    return body?.isCeoAppointment === true || body?.appointmentFor === 'ceo' || body?.targetRole === 'ceo';
+}
 
-    const duration = Math.max(15, toMinutes(endTime) - toMinutes(startTime));
-    const suggestedSlots = await slotService.suggestSlots(date, duration, 5);
-    res.status(409).json({
-        error: `This time overlaps with ${conflicts.map((c: any) => `"${c.title}"${c.owner_name ? ` (${c.owner_name})` : ''}`).join(', ')}`,
+/** The CEO owns CEO appointments; everyone owns their own coordinator entries. */
+async function resolveOwner(req: AuthRequest, body: any): Promise<{ ownerId: string; isCeoAppointment: boolean; ceoId?: string }> {
+    if (wantsCeoAppointment(body)) {
+        const ceo = await authService.getCeo();
+        if (!ceo) throw { httpStatus: 400, body: { error: 'CEO account not found' } };
+        return { ownerId: ceo.id, isCeoAppointment: true, ceoId: ceo.id };
+    }
+    return { ownerId: req.user!.id, isCeoAppointment: false };
+}
+
+function conflictPayload(conflicts: any[]) {
+    return {
+        error: `This time overlaps with ${conflicts.map((c: any) => `"${c.title}" (${priorityLabel(c.priority)})${c.owner_name ? ` — ${c.owner_name}` : ''}`).join(', ')}`,
         hasConflict: true,
-        conflicts,
-        suggestedSlots
-    });
-    return true;
+        conflicts: conflicts.map((c: any) => ({
+            id: c.id,
+            title: c.title,
+            startTime: normalizeTime(c.start_time),
+            endTime: normalizeTime(c.end_time),
+            ownerName: c.owner_name,
+            priority: c.priority,
+            priorityLabel: priorityLabel(c.priority)
+        })),
+        message: 'Confirm to override the conflict, or choose another time.'
+    };
 }
 
 router.get('/', async (req: AuthRequest, res: Response) => {
     try {
-        const { date, startDate, endDate, userId, scope } = req.query;
-        const targetUserId = userId as string || req.user!.id;
-        const scopeValue = (scope as string) || 'mine';
+        const { date, startDate, endDate, scope } = req.query;
+        // Scope is granted by role, never by the client. Only the coordinator
+        // may see the shared `all` view; everyone else is confined to their own.
+        const { allowed, scope: scopeValue } = resolveScheduleScope(req.user!.role, scope);
+        if (!allowed) {
+            res.status(403).json({ error: 'You are not authorized to view all schedules' });
+            return;
+        }
+        const targetUserId = req.user!.id;
         if (date) {
             const schedules = await scheduleService.getByDate(date as string, targetUserId, scopeValue);
             res.json(schedules);
@@ -98,7 +116,15 @@ router.get('/export', async (req: AuthRequest, res: Response) => {
             return;
         }
 
-        const scope = String(req.query.scope || 'all');
+        // The coordinator exports the shared view by default; everyone else is
+        // confined to their own calendar, and an explicit `scope=all` they are
+        // not entitled to is rejected rather than honored.
+        const requestedScope = req.query.scope ?? (req.user!.role === 'coordinator' ? 'all' : 'mine');
+        const { allowed, scope } = resolveScheduleScope(req.user!.role, requestedScope);
+        if (!allowed) {
+            res.status(403).json({ error: 'You are not authorized to export all schedules' });
+            return;
+        }
         const schedules = await scheduleService.getByDateRange(startDate, endDate, req.user!.id, scope);
 
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -107,7 +133,7 @@ router.get('/export', async (req: AuthRequest, res: Response) => {
             return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
         };
 
-        const header = ['Date', 'Day', 'Start Time', 'End Time', 'Title', 'Type', 'Notes', 'Status', 'Created By'];
+        const header = ['Date', 'Day', 'Start Time', 'End Time', 'Title', 'Type', 'Notes', 'Priority', 'Status', 'Owner'];
         const rows = schedules.map((s: any) => {
             const [y, m, d] = String(s.schedule_date).split('-').map(Number);
             const day = dayNames[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
@@ -117,8 +143,9 @@ router.get('/export', async (req: AuthRequest, res: Response) => {
                 normalizeTime(s.start_time),
                 normalizeTime(s.end_time),
                 s.title,
-                s.schedule_type,
+                s.is_ceo_appointment ? 'CEO Appointment' : s.schedule_type,
                 s.description || '',
+                priorityLabel(s.priority),
                 s.status,
                 s.creator_name || ''
             ].map(escape).join(',');
@@ -143,7 +170,6 @@ router.get('/available-slots', async (req: AuthRequest, res: Response) => {
             return;
         }
         const slots = await scheduleService.getAvailableSlots(date as string, parseInt(duration as string));
-        // both shapes kept so older callers (start_time/end_time) keep working
         res.json(slots.map((s: any) => ({
             ...s,
             start: s.start,
@@ -162,7 +188,11 @@ router.get('/conflict-check', async (req: AuthRequest, res: Response) => {
         const conflicts = await scheduleService.checkConflict(
             date as string, startTime as string, endTime as string, excludeId as string
         );
-        res.json({ hasConflict: conflicts.length > 0, conflicts });
+        res.json({ hasConflict: conflicts.length > 0, conflicts: conflicts.map((c: any) => ({
+            id: c.id, title: c.title,
+            startTime: normalizeTime(c.start_time), endTime: normalizeTime(c.end_time),
+            ownerName: c.owner_name, priority: c.priority, priorityLabel: priorityLabel(c.priority)
+        })) });
     } catch (error) {
         res.status(500).json({ error: 'Failed to check conflicts' });
     }
@@ -172,6 +202,10 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     try {
         const schedule = await scheduleService.getById(req.params.id);
         if (!schedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
+        if (!canReadSchedule(req.user!.id, req.user!.role, schedule)) {
+            res.status(403).json({ error: 'You are not authorized to view this schedule' });
+            return;
+        }
         res.json(schedule);
     } catch (error) {
         res.status(500).json({ error: 'Failed to get schedule' });
@@ -190,22 +224,38 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
         const start = normalizeTime(startTime);
         const end = normalizeTime(endTime);
+        const { ownerId, isCeoAppointment } = await resolveOwner(req, req.body);
+        const override = req.body.overrideConflict === true;
 
-        if (await conflictResponse(date, start, end, undefined, res)) return;
-
-        const targetUserId = (req.query.userId as string) || req.user!.id;
-
-        const schedule = await scheduleService.create({
-            title, description, date, startTime: start, endTime: end,
-            scheduleType: scheduleType || 'other', location,
-            participants: participants || [], priority: priority || 'medium',
-            reminderMinutes: reminderMinutes || 15, userId: targetUserId
-        });
+        const schedule = await withTransaction(async (client) => {
+            const conflicts = await scheduleService.checkConflict(date, start, end, undefined, ownerId, client);
+            if (conflicts.length > 0 && !override) {
+                throw { httpStatus: 409, body: conflictPayload(conflicts) };
+            }
+            return scheduleService.create({
+                title, description, date, startTime: start, endTime: end,
+                scheduleType: scheduleType || 'other', location,
+                participants: participants || [], priority: priority || 'medium',
+                reminderMinutes: reminderMinutes || 15, userId: ownerId,
+                isCeoAppointment,
+                conflictOverride: override,
+                overrideBy: override ? req.user!.id : null,
+                overrideAt: override ? new Date().toISOString() : null,
+                overrideReason: override ? (req.body.overrideReason || null) : null
+            }, client);
+        }, scheduleAdvisoryKey(ownerId, date));
 
         await auditService.log({
             userId: req.user!.id, action: 'created', recordType: 'schedule',
             recordId: schedule.id, newData: schedule
         });
+
+        if (schedule.conflict_override) {
+            await auditService.log({
+                userId: req.user!.id, action: 'conflict_override', recordType: 'schedule',
+                recordId: schedule.id, newData: schedule
+            });
+        }
 
         await notificationService.notifyOtherUser(
             req.user!.id, 'New Schedule Created',
@@ -215,6 +265,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
         res.status(201).json(schedule);
     } catch (error: any) {
+        if (error && error.httpStatus) {
+            res.status(error.httpStatus).json(error.body);
+            return;
+        }
         res.status(500).json({ error: 'Failed to create schedule' });
     }
 });
@@ -223,6 +277,12 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
     try {
         const oldSchedule = await scheduleService.getById(req.params.id);
         if (!oldSchedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
+
+        const authorized = canManageSchedule(req.user!.id, req.user!.role, oldSchedule);
+        if (!authorized) {
+            res.status(403).json({ error: 'You are not authorized to edit this schedule' });
+            return;
+        }
 
         const merged = {
             title: req.body.title ?? oldSchedule.title,
@@ -239,15 +299,48 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 
         const start = normalizeTime(merged.startTime);
         const end = normalizeTime(merged.endTime);
+        const override = req.body.overrideConflict === true;
+        const priorityChanging = req.body.priority !== undefined
+            && normalizePriority(req.body.priority) !== normalizePriority(oldSchedule.priority);
 
-        if (await conflictResponse(merged.date, start, end, req.params.id, res)) return;
-
-        const updated = await scheduleService.update(req.params.id, req.body, req.user!.id);
+        const updated = await withTransaction(async (client) => {
+            const conflicts = await scheduleService.checkConflict(merged.date, start, end, req.params.id, oldSchedule.user_id, client);
+            if (conflicts.length > 0) {
+                const decision = overrideDecision(conflicts.length, override, authorized);
+                if (!decision.ok) {
+                    if (decision.reason === 'unauthorized') {
+                        throw { httpStatus: 403, body: { error: 'You are not authorized to override this conflict.' } };
+                    }
+                    throw { httpStatus: 409, body: conflictPayload(conflicts) };
+                }
+            }
+            const payload = { ...req.body };
+            if (override) {
+                Object.assign(payload, buildOverrideFields(req.user!.id, req.user!.fullName, req.body.overrideReason));
+            }
+            return scheduleService.update(req.params.id, payload, req.user!.id, client);
+        }, scheduleAdvisoryKey(oldSchedule.user_id, merged.date));
 
         await auditService.log({
             userId: req.user!.id, action: 'updated', recordType: 'schedule',
             recordId: req.params.id, oldData: oldSchedule, newData: updated
         });
+
+        if (override) {
+            await auditService.log({
+                userId: req.user!.id, action: 'conflict_override', recordType: 'schedule',
+                recordId: req.params.id, oldData: oldSchedule, newData: updated
+            });
+        }
+
+        if (priorityChanging) {
+            await auditService.log({
+                userId: req.user!.id, action: 'priority_changed', recordType: 'schedule',
+                recordId: req.params.id,
+                oldData: { priority: oldSchedule.priority },
+                newData: { priority: updated.priority }
+            });
+        }
 
         await notificationService.notifyOtherUser(
             req.user!.id, 'Schedule Updated',
@@ -256,7 +349,11 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         );
 
         res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
+        if (error && error.httpStatus) {
+            res.status(error.httpStatus).json(error.body);
+            return;
+        }
         res.status(500).json({ error: 'Failed to update schedule' });
     }
 });
@@ -264,21 +361,48 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
 router.patch('/:id/status', async (req: AuthRequest, res: Response) => {
     try {
         const oldSchedule = await scheduleService.getById(req.params.id);
-        const updated = await scheduleService.update(req.params.id, { status: req.body.status }, req.user!.id);
+        if (!oldSchedule) { res.status(404).json({ error: 'Schedule not found' }); return; }
+
+        if (!canManageSchedule(req.user!.id, req.user!.role, oldSchedule)) {
+            res.status(403).json({ error: 'You are not authorized to change this schedule' });
+            return;
+        }
+
+        const newStatus = req.body.status;
+        const reactivating = newStatus === 'active' && oldSchedule.status !== 'active';
+
+        const updated = await withTransaction(async (client) => {
+            if (reactivating) {
+                const conflicts = await scheduleService.checkConflict(
+                    oldSchedule.schedule_date,
+                    normalizeTime(oldSchedule.start_time),
+                    normalizeTime(oldSchedule.end_time),
+                    req.params.id, oldSchedule.user_id, client
+                );
+                if (conflicts.length > 0 && req.body.overrideConflict !== true) {
+                    throw { httpStatus: 409, body: conflictPayload(conflicts) };
+                }
+            }
+            return scheduleService.update(req.params.id, { status: newStatus }, req.user!.id, client);
+        }, scheduleAdvisoryKey(oldSchedule.user_id, oldSchedule.schedule_date));
 
         await auditService.log({
-            userId: req.user!.id, action: req.body.status, recordType: 'schedule',
+            userId: req.user!.id, action: newStatus, recordType: 'schedule',
             recordId: req.params.id, oldData: oldSchedule, newData: updated
         });
 
         await notificationService.notifyOtherUser(
             req.user!.id, 'Schedule Status Changed',
-            `${req.user!.fullName} changed "${updated.title}" to ${req.body.status}`,
-            req.body.status, 'schedule', req.params.id, oldSchedule, updated
+            `${req.user!.fullName} changed "${updated.title}" to ${newStatus}`,
+            newStatus, 'schedule', req.params.id, oldSchedule, updated
         );
 
         res.json(updated);
-    } catch (error) {
+    } catch (error: any) {
+        if (error && error.httpStatus) {
+            res.status(error.httpStatus).json(error.body);
+            return;
+        }
         res.status(500).json({ error: 'Failed to update schedule status' });
     }
 });

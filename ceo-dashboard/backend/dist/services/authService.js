@@ -41,6 +41,11 @@ class AuthService {
         const result = await database_1.default.query('SELECT id, username, full_name, email, role, avatar, is_active FROM users ORDER BY full_name');
         return result.rows;
     }
+    /** The CEO account. Used to attribute appointments created on the CEO's behalf. */
+    async getCeo() {
+        const result = await database_1.default.query("SELECT id, username, full_name, email, role FROM users WHERE role = 'ceo' AND is_active = true LIMIT 1");
+        return result.rows[0];
+    }
 }
 exports.AuthService = AuthService;
 exports.authService = new AuthService();

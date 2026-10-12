@@ -1361,6 +1361,65 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.4px;
 }
+.week-event.is-ceo {
+    background: rgba(201,162,39,0.06);
+    border-color: rgba(201,162,39,0.35);
+}
+.week-event.is-conflict {
+    border-color: #D9534F;
+    box-shadow: inset 0 0 0 1px rgba(217,83,79,0.25);
+}
+.week-event.is-pending .week-event-time { color: #B4791F; }
+.week-event-conflict-chip {
+    margin-top: 3px;
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #C62828;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.week-event-ceo {
+    display: inline-block;
+    font-size: 8.5px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: rgba(201,162,39,0.18);
+    color: #A6811A;
+    vertical-align: middle;
+    letter-spacing: 0.4px;
+}
+.calendar-event.is-ceo {
+    background: rgba(201,162,39,0.14);
+    color: #A6811A;
+    font-weight: 600;
+}
+.calendar-event.is-booking {
+    background: rgba(200,150,46,0.10);
+    border: 1px dashed rgba(200,150,46,0.5);
+    font-style: italic;
+}
+.calendar-event.is-conflict {
+    background: rgba(217,79,79,0.12) !important;
+    color: #B23B3B !important;
+    border: 1px solid rgba(217,79,79,0.55) !important;
+    font-weight: 600;
+}
+.calendar-event .priority-dot {
+    width: 6px;
+    height: 6px;
+    margin-right: 3px;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+.calendar-event .bi-exclamation-triangle-fill {
+    color: var(--danger);
+    font-size: 10px;
+    margin-left: 2px;
+}
 .week-empty {
     font-size: 11.5px;
     color: var(--text-muted);

@@ -46,4 +46,31 @@ export async function queryRetry(text: string, params?: any[], retries = 1): Pro
     }
 }
 
+/**
+ * Runs `fn` inside a single transaction. Commit on success, rollback on any error.
+ * A per-key advisory lock serialises concurrent operations for the same key
+ * (e.g. a booking date) so two simultaneous requests cannot both pass a conflict
+ * check and create overlapping records.
+ */
+export async function withTransaction<T>(
+    fn: (client: import('pg').PoolClient) => Promise<T>,
+    advisoryKey?: string
+): Promise<T> {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        if (advisoryKey) {
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [advisoryKey]);
+        }
+        const result = await fn(client);
+        await client.query('COMMIT');
+        return result;
+    } catch (err) {
+        await client.query('ROLLBACK').catch(() => undefined);
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
 export default pool;

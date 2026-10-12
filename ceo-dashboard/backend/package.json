@@ -7,7 +7,9 @@
     "dev": "ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "migrate": "ts-node src/config/migrate.ts"
+    "migrate": "ts-node src/config/migrate.ts",
+    "migrate:scheduling": "ts-node src/config/migrate-scheduling.ts",
+    "test": "node --test \"dist/lib/**/*.test.js\""
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

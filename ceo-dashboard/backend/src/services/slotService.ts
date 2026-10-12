@@ -1,4 +1,4 @@
-﻿import { queryRetry } from '../config/database';
+import { queryRetry } from '../config/database';
 
 /**
  * Single source of truth for availability.
@@ -163,7 +163,7 @@ export class SlotService {
             ),
             queryRetry(
                 `SELECT preferred_time, duration FROM bookings
-                 WHERE booking_date = $1 AND status IN ('pending','accepted')`,
+                 WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled')`,
                 [date]
             )
         ]);
@@ -239,7 +239,7 @@ export class SlotService {
             ),
             queryRetry(
                 `SELECT booking_date, preferred_time, duration FROM bookings
-                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted')`,
+                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted','rescheduled')`,
                 [startDate, endDate]
             )
         ]);

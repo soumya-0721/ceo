@@ -44,8 +44,9 @@ export class AvailabilityService {
         }
     }
 
-    async delete(id: string) {
-        await pool.query('DELETE FROM availability WHERE id=$1', [id]);
+    async delete(id: string, userId: string) {
+        const result = await pool.query('DELETE FROM availability WHERE id=$1 AND user_id=$2 RETURNING id', [id, userId]);
+        return result.rows[0];
     }
 }
 

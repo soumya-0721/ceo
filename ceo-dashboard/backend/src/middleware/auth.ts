@@ -43,3 +43,21 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
     }
     next();
 }
+
+/** Restrict a route to one or more roles. Must run after authenticateToken. */
+export function requireRole(...roles: string[]) {
+    return (req: AuthRequest, res: Response, next: NextFunction): void => {
+        if (!req.user) {
+            res.status(401).json({ error: 'Authentication required.' });
+            return;
+        }
+        if (!roles.includes(req.user.role)) {
+            res.status(403).json({ error: 'You do not have permission to perform this action.' });
+            return;
+        }
+        next();
+    };
+}
+
+/** External CEO booking requests may only be approved/rejected/rescheduled by the coordinator. */
+export const requireCoordinator = requireRole('coordinator');

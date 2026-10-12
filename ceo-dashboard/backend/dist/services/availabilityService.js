@@ -31,8 +31,9 @@ class AvailabilityService {
             return result.rows[0];
         }
     }
-    async delete(id) {
-        await database_1.default.query('DELETE FROM availability WHERE id=$1', [id]);
+    async delete(id, userId) {
+        const result = await database_1.default.query('DELETE FROM availability WHERE id=$1 AND user_id=$2 RETURNING id', [id, userId]);
+        return result.rows[0];
     }
 }
 exports.AvailabilityService = AvailabilityService;
