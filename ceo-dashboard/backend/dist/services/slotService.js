@@ -106,9 +106,13 @@ function todayStr() {
     return `${now.getFullYear()}-${m}-${d}`;
 }
 class SlotService {
-    /** Open windows for a date: availability rows for that weekday, else default working hours. */
-    async getWorkingWindows(date) {
-        const rows = await (0, database_1.queryRetry)('SELECT start_time, end_time, is_available FROM availability WHERE day_of_week = $1', [dayOfWeek(date)]);
+    /** Open windows for a date: availability rows for that weekday (user-scoped), else default working hours. */
+    async getWorkingWindows(date, userId) {
+        const query = userId
+            ? 'SELECT start_time, end_time, is_available FROM availability WHERE day_of_week = $1 AND user_id = $2'
+            : 'SELECT start_time, end_time, is_available FROM availability WHERE day_of_week = $1';
+        const params = userId ? [dayOfWeek(date), userId] : [dayOfWeek(date)];
+        const rows = await (0, database_1.queryRetry)(query, params);
         const open = rows.rows.filter((r) => r.is_available !== false).map((r) => ({
             start: normalize(r.start_time), end: normalize(r.end_time)
         }));
@@ -121,14 +125,19 @@ class SlotService {
         return windows;
     }
     /** Every occupied period for a date (schedules of both users + focus + bookings), merged. */
-    async getBusyRanges(date) {
+    async getBusyRanges(date, userId) {
+        const scheduleQuery = userId
+            ? `SELECT start_time, end_time FROM schedules WHERE schedule_date = $1 AND status = 'active' AND user_id = $2`
+            : `SELECT start_time, end_time FROM schedules WHERE schedule_date = $1 AND status = 'active'`;
+        const scheduleParams = userId ? [date, userId] : [date];
+        const bookingsQuery = userId
+            ? `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled') AND user_id = $2`
+            : `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled')`;
+        const bookingsParams = userId ? [date, userId] : [date];
         const [schedules, focus, bookings] = await Promise.all([
-            (0, database_1.queryRetry)(`SELECT start_time, end_time FROM schedules
-                 WHERE schedule_date = $1 AND status = 'active'`, [date]),
-            (0, database_1.queryRetry)(`SELECT start_time, end_time FROM focus_sessions
-                 WHERE focus_date = $1 AND status = 'active'`, [date]),
-            (0, database_1.queryRetry)(`SELECT preferred_time, duration FROM bookings
-                 WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled')`, [date])
+            (0, database_1.queryRetry)(scheduleQuery, scheduleParams),
+            (0, database_1.queryRetry)(`SELECT start_time, end_time FROM focus_sessions WHERE focus_date = $1 AND status = 'active'`, [date]),
+            (0, database_1.queryRetry)(bookingsQuery, bookingsParams)
         ]);
         const blocks = [];
         for (const row of schedules.rows)
@@ -141,8 +150,8 @@ class SlotService {
         }
         return mergeRanges(blocks);
     }
-    async getFreeWindows(date) {
-        const [working, busy] = await Promise.all([this.getWorkingWindows(date), this.getBusyRanges(date)]);
+    async getFreeWindows(date, userId) {
+        const [working, busy] = await Promise.all([this.getWorkingWindows(date, userId), this.getBusyRanges(date)]);
         return subtractRanges(working, busy);
     }
     /** Discrete start times (stepping by `duration`) that fit entirely inside a free window. */
@@ -161,7 +170,7 @@ class SlotService {
         }
         return slots;
     }
-    async isSlotAvailable(date, startTime, durationMinutes) {
+    async isSlotAvailable(date, startTime, durationMinutes, userId) {
         if (!isValidDate(date) || !DATE_RE.test(date))
             return false;
         if (!/^\d{2}:\d{2}/.test(startTime || ''))
@@ -169,7 +178,7 @@ class SlotService {
         const duration = Math.max(5, Math.min(480, durationMinutes || 30));
         const start = toMinutes(startTime);
         const end = start + duration;
-        const free = await this.getFreeWindows(date);
+        const free = await this.getFreeWindows(date, userId);
         return free.some(w => start >= toMinutes(w.start) && end <= toMinutes(w.end));
     }
     /** Candidate replacements when a requested time is taken. */
@@ -178,20 +187,20 @@ class SlotService {
         return slots.slice(0, limit);
     }
     /** Week data for the schedule dashboards: free windows + totals per day. */
-    async getWeekOverview(startDate, endDate) {
+    async getWeekOverview(startDate, endDate, userId) {
         if (!isValidDate(startDate) || !isValidDate(endDate)) {
             throw new Error('Invalid date range');
         }
         const dates = dateRange(startDate, endDate);
         const weekdays = Array.from(new Set(dates.map(dayOfWeek)));
         const [availability, schedules, focus, bookings] = await Promise.all([
-            (0, database_1.queryRetry)('SELECT day_of_week, start_time, end_time, is_available FROM availability WHERE day_of_week = ANY($1)', [weekdays]),
+            (0, database_1.queryRetry)('SELECT day_of_week, start_time, end_time, is_available FROM availability WHERE day_of_week = ANY($1) AND user_id = $2', [weekdays, userId]),
             (0, database_1.queryRetry)(`SELECT schedule_date, start_time, end_time FROM schedules
-                 WHERE schedule_date BETWEEN $1 AND $2 AND status = 'active'`, [startDate, endDate]),
+                 WHERE schedule_date BETWEEN $1 AND $2 AND status = 'active' AND user_id = $3`, [startDate, endDate, userId]),
             (0, database_1.queryRetry)(`SELECT focus_date, start_time, end_time FROM focus_sessions
                  WHERE focus_date BETWEEN $1 AND $2 AND status = 'active'`, [startDate, endDate]),
             (0, database_1.queryRetry)(`SELECT booking_date, preferred_time, duration FROM bookings
-                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted','rescheduled')`, [startDate, endDate])
+                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted','rescheduled') AND user_id = $3`, [startDate, endDate, userId])
         ]);
         const workingByDay = new Map();
         for (const row of availability.rows) {

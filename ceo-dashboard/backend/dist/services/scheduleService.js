@@ -164,7 +164,7 @@ class ScheduleService {
              WHERE schedule_date=$1 AND status='active'
              AND schedule_type != 'personal'
              AND (is_ceo_appointment = true OR user_id = $2)`, [today, userId]);
-        const freeWindows = await slotService_1.slotService.getFreeWindows(today);
+        const freeWindows = await slotService_1.slotService.getFreeWindows(today, userId);
         const totalFreeMinutes = freeWindows.reduce((acc, window) => {
             return acc + ((0, scheduling_1.toMinutes)(window.end) - (0, scheduling_1.toMinutes)(window.start));
         }, 0);

@@ -129,12 +129,13 @@ export function todayStr(): string {
 }
 
 export class SlotService {
-    /** Open windows for a date: availability rows for that weekday, else default working hours. */
-    async getWorkingWindows(date: string): Promise<TimeRange[]> {
-        const rows = await queryRetry(
-            'SELECT start_time, end_time, is_available FROM availability WHERE day_of_week = $1',
-            [dayOfWeek(date)]
-        );
+    /** Open windows for a date: availability rows for that weekday (user-scoped), else default working hours. */
+    async getWorkingWindows(date: string, userId?: string): Promise<TimeRange[]> {
+        const query = userId
+            ? 'SELECT start_time, end_time, is_available FROM availability WHERE day_of_week = $1 AND user_id = $2'
+            : 'SELECT start_time, end_time, is_available FROM availability WHERE day_of_week = $1';
+        const params = userId ? [dayOfWeek(date), userId] : [dayOfWeek(date)];
+        const rows = await queryRetry(query, params);
 
         const open = rows.rows.filter((r: any) => r.is_available !== false).map((r: any) => ({
             start: normalize(r.start_time), end: normalize(r.end_time)
@@ -148,24 +149,25 @@ export class SlotService {
         return windows;
     }
 
-    /** Every occupied period for a date (schedules of both users + focus + bookings), merged. */
-    async getBusyRanges(date: string): Promise<TimeRange[]> {
+/** Every occupied period for a date (schedules of both users + focus + bookings), merged. */
+    async getBusyRanges(date: string, userId?: string): Promise<TimeRange[]> {
+        const scheduleQuery = userId
+            ? `SELECT start_time, end_time FROM schedules WHERE schedule_date = $1 AND status = 'active' AND user_id = $2`
+            : `SELECT start_time, end_time FROM schedules WHERE schedule_date = $1 AND status = 'active'`;
+        const scheduleParams = userId ? [date, userId] : [date];
+
+        const bookingsQuery = userId
+            ? `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled') AND user_id = $2`
+            : `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled')`;
+        const bookingsParams = userId ? [date, userId] : [date];
+
         const [schedules, focus, bookings] = await Promise.all([
+            queryRetry(scheduleQuery, scheduleParams),
             queryRetry(
-                `SELECT start_time, end_time FROM schedules
-                 WHERE schedule_date = $1 AND status = 'active'`,
+                `SELECT start_time, end_time FROM focus_sessions WHERE focus_date = $1 AND status = 'active'`,
                 [date]
             ),
-            queryRetry(
-                `SELECT start_time, end_time FROM focus_sessions
-                 WHERE focus_date = $1 AND status = 'active'`,
-                [date]
-            ),
-            queryRetry(
-                `SELECT preferred_time, duration FROM bookings
-                 WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled')`,
-                [date]
-            )
+            queryRetry(bookingsQuery, bookingsParams)
         ]);
 
         const blocks: TimeRange[] = [];
@@ -178,8 +180,8 @@ export class SlotService {
         return mergeRanges(blocks);
     }
 
-    async getFreeWindows(date: string): Promise<TimeRange[]> {
-        const [working, busy] = await Promise.all([this.getWorkingWindows(date), this.getBusyRanges(date)]);
+    async getFreeWindows(date: string, userId?: string): Promise<TimeRange[]> {
+        const [working, busy] = await Promise.all([this.getWorkingWindows(date, userId), this.getBusyRanges(date)]);
         return subtractRanges(working, busy);
     }
 
@@ -200,13 +202,13 @@ export class SlotService {
         return slots;
     }
 
-    async isSlotAvailable(date: string, startTime: string, durationMinutes: number): Promise<boolean> {
+    async isSlotAvailable(date: string, startTime: string, durationMinutes: number, userId?: string): Promise<boolean> {
         if (!isValidDate(date) || !DATE_RE.test(date)) return false;
         if (!/^\d{2}:\d{2}/.test(startTime || '')) return false;
         const duration = Math.max(5, Math.min(480, durationMinutes || 30));
         const start = toMinutes(startTime);
         const end = start + duration;
-        const free = await this.getFreeWindows(date);
+        const free = await this.getFreeWindows(date, userId);
         return free.some(w => start >= toMinutes(w.start) && end <= toMinutes(w.end));
     }
 
@@ -217,7 +219,7 @@ export class SlotService {
     }
 
     /** Week data for the schedule dashboards: free windows + totals per day. */
-    async getWeekOverview(startDate: string, endDate: string) {
+    async getWeekOverview(startDate: string, endDate: string, userId: string) {
         if (!isValidDate(startDate) || !isValidDate(endDate)) {
             throw new Error('Invalid date range');
         }
@@ -225,12 +227,12 @@ export class SlotService {
         const dates = dateRange(startDate, endDate);
         const weekdays = Array.from(new Set(dates.map(dayOfWeek)));
 
-        const [availability, schedules, focus, bookings] = await Promise.all([
-            queryRetry('SELECT day_of_week, start_time, end_time, is_available FROM availability WHERE day_of_week = ANY($1)', [weekdays]),
+const [availability, schedules, focus, bookings] = await Promise.all([
+            queryRetry('SELECT day_of_week, start_time, end_time, is_available FROM availability WHERE day_of_week = ANY($1) AND user_id = $2', [weekdays, userId]),
             queryRetry(
                 `SELECT schedule_date, start_time, end_time FROM schedules
-                 WHERE schedule_date BETWEEN $1 AND $2 AND status = 'active'`,
-                [startDate, endDate]
+                 WHERE schedule_date BETWEEN $1 AND $2 AND status = 'active' AND user_id = $3`,
+                [startDate, endDate, userId]
             ),
             queryRetry(
                 `SELECT focus_date, start_time, end_time FROM focus_sessions
@@ -239,8 +241,8 @@ export class SlotService {
             ),
             queryRetry(
                 `SELECT booking_date, preferred_time, duration FROM bookings
-                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted','rescheduled')`,
-                [startDate, endDate]
+                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted','rescheduled') AND user_id = $3`,
+                [startDate, endDate, userId]
             )
         ]);
 

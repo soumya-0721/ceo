@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.availabilityService = exports.AvailabilityService = void 0;
 const database_1 = __importDefault(require("../config/database"));
+const scheduling_1 = require("../lib/scheduling");
 class AvailabilityService {
     async getByUser(userId) {
         const result = await database_1.default.query('SELECT * FROM availability WHERE user_id=$1 ORDER BY day_of_week, start_time', [userId]);
@@ -19,7 +20,20 @@ class AvailabilityService {
         return result.rows;
     }
     async upsert(userId, dayOfWeek, startTime, endTime, isAvailable, label) {
-        const existing = await database_1.default.query('SELECT id FROM availability WHERE user_id=$1 AND day_of_week=$2 AND start_time=$3 AND end_time=$4', [userId, dayOfWeek, startTime, endTime]);
+        const overlapCheck = await database_1.default.query(`SELECT id, start_time, end_time FROM availability
+             WHERE user_id=$1 AND day_of_week=$2 AND is_available IS NOT FALSE`, [userId, dayOfWeek]);
+        const newStart = (0, scheduling_1.normalizeTime)(startTime);
+        const newEnd = (0, scheduling_1.normalizeTime)(endTime);
+        // Check for overlapping slots on the same day
+        const hasOverlap = overlapCheck.rows.some((r) => {
+            const existingStart = (0, scheduling_1.normalizeTime)(r.start_time);
+            const existingEnd = (0, scheduling_1.normalizeTime)(r.end_time);
+            return (0, scheduling_1.toMinutes)(newStart) < (0, scheduling_1.toMinutes)(existingEnd) && (0, scheduling_1.toMinutes)(newEnd) > (0, scheduling_1.toMinutes)(existingStart);
+        });
+        if (hasOverlap) {
+            throw { httpStatus: 409, body: { error: 'This time slot overlaps with an existing availability entry' } };
+        }
+        const existing = await database_1.default.query(`SELECT id FROM availability WHERE user_id=$1 AND day_of_week=$2 AND start_time=$3 AND end_time=$4`, [userId, dayOfWeek, startTime, endTime]);
         if (existing.rows.length > 0) {
             const result = await database_1.default.query(`UPDATE availability SET is_available=$1, label=$2, updated_at=NOW()
                  WHERE id=$3 RETURNING *`, [isAvailable, label || null, existing.rows[0].id]);

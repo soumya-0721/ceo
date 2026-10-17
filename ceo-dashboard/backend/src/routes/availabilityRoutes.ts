@@ -54,7 +54,11 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         );
 
         res.json(result);
-    } catch (error) {
+    } catch (error: any) {
+        if (error && error.httpStatus) {
+            res.status(error.httpStatus).json(error.body);
+            return;
+        }
         res.status(500).json({ error: 'Failed to update availability' });
     }
 });

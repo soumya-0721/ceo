@@ -46,12 +46,12 @@ router.get('/available-slots', async (req, res) => {
     }
 });
 /** Final availability check so an occupied slot can never be booked twice. */
-async function assertSlotIsFree(date, time, duration) {
+async function assertSlotIsFree(date, time, duration, userId) {
     if (!DATE_RE.test(date))
         return 'A valid booking date is required.';
     if (!TIME_RE.test(time))
         return 'A valid booking time is required.';
-    const free = await slotService_1.slotService.isSlotAvailable(date, time, duration);
+    const free = await slotService_1.slotService.isSlotAvailable(date, time, duration, userId);
     if (!free)
         return 'That time slot is no longer available. Please select another slot.';
     return null;

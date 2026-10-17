@@ -147,7 +147,7 @@ export class ScheduleService {
             [today, userId]
         );
 
-        const freeWindows = await slotService.getFreeWindows(today);
+        const freeWindows = await slotService.getFreeWindows(today, userId);
         const totalFreeMinutes = freeWindows.reduce((acc: number, window: TimeRange) => {
             return acc + (toMinutes(window.end) - toMinutes(window.start));
         }, 0);
