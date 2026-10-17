@@ -977,6 +977,64 @@ function addMinutesStr(time, mins) {
     const total = (h || 0) * 60 + (m || 0) + (mins || 0);
     return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
+/** Human-readable message for an error thrown by the API layer. */
+function describeApiError(err) {
+    if (!err)
+        return 'unexpected error';
+    if (typeof err === 'string')
+        return err;
+    if (err.status === 401)
+        return 'your session expired — please sign in again';
+    if (err.status === 403)
+        return 'you do not have access to this data';
+    if (err.status === 500)
+        return 'the server could not load this data (server error)';
+    if (err.status)
+        return err.error || `request failed (${err.status})`;
+    return err.error || err.message || 'network error';
+}
+/**
+ * Resolves a data load without rejecting, so one failing endpoint cannot blank
+ * an entire page. Returns a fallback value tagged with whether it succeeded.
+ */
+async function loadSection(promise, fallback) {
+    try {
+        return { ok: true, value: await promise };
+    }
+    catch (error) {
+        return { ok: false, value: fallback, error };
+    }
+}
+/** Inline warning shown when a single section of a page failed to load. */
+function sectionWarning(label, err, retryPage) {
+    return `<div class="alert alert-warning d-flex justify-content-between align-items-center py-2 px-3 mb-3" style="font-size:12.5px;">
+        <span><i class="bi bi-exclamation-triangle me-1"></i><strong>${label}</strong> could not be loaded — ${describeApiError(err)}.</span>
+        <button class="btn btn-sm btn-outline-forest ms-2 flex-shrink-0" onclick="showPage('${retryPage}')">Retry</button>
+    </div>`;
+}
+/** Full-page error with a retry action. */
+function pageError(title, err, retryPage) {
+    return `<div class="content-header"><div><h4>${title}</h4></div></div>
+        <div class="alert alert-danger d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-exclamation-triangle me-1"></i>Failed to load ${title.toLowerCase()} — ${describeApiError(err)}.</span>
+            <button class="btn btn-sm btn-outline-forest ms-2 flex-shrink-0" onclick="showPage('${retryPage}')">Retry</button>
+        </div>`;
+}
+/** Neutral week overview used when the availability endpoint fails, so the
+ *  week grid still renders the user's events/bookings instead of nothing. */
+function emptyWeekOverview(weekStart) {
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+        const key = addDaysKey(weekStart, i);
+        days.push({ date: key, dayOfWeek: keyToDate(key).getDay(), working: [], free: [], busy: [], workingMinutes: 0, freeMinutes: 0, bookedMinutes: 0 });
+    }
+    return {
+        start: weekStart,
+        end: addDaysKey(weekStart, 6),
+        days,
+        totals: { availableMinutes: 0, bookedMinutes: 0, appointmentsWeek: 0, appointmentsToday: 0 }
+    };
+}
 async function renderSchedule() {
     const wrapper = document.getElementById('content-wrapper');
     const todayKey = dateToKey(new Date());
@@ -986,13 +1044,23 @@ async function renderSchedule() {
     const weekEnd = addDaysKey(weekStart, 6);
     const isCurrentWeek = weekStart === dateToKey(mondayOf(new Date()));
     try {
-        const [overview, schedules, bookings] = await Promise.all([
-            api.getWeekOverview(weekStart, weekEnd),
-            // The CEO only sees the CEO calendar; the coordinator sees the shared
-            // coordination view (her own entries + everything on the CEO's calendar).
-            api.getSchedules(undefined, weekStart, weekEnd, currentUser?.role === 'ceo' ? 'mine' : 'all'),
-            api.getBookings()
-        ]);
+        // Load each section independently so one failing endpoint (e.g. a server
+        // error from a pending schema migration) degrades gracefully instead of
+        // blanking the whole page.
+        const overviewLoad = await loadSection(api.getWeekOverview(weekStart, weekEnd), emptyWeekOverview(weekStart));
+        const schedulesLoad = await loadSection(
+        // The CEO only sees the CEO calendar; the coordinator sees the shared
+        // coordination view (her own entries + everything on the CEO's calendar).
+        api.getSchedules(undefined, weekStart, weekEnd, currentUser?.role === 'ceo' ? 'mine' : 'all'), []);
+        const bookingsLoad = await loadSection(api.getBookings(), []);
+        const overview = overviewLoad.value;
+        const schedules = schedulesLoad.value;
+        const bookings = bookingsLoad.value;
+        const warnings = [
+            !overviewLoad.ok ? sectionWarning('Weekly availability', overviewLoad.error, 'schedule') : '',
+            !schedulesLoad.ok ? sectionWarning('Your events', schedulesLoad.error, 'schedule') : '',
+            !bookingsLoad.ok ? sectionWarning('Appointment requests', bookingsLoad.error, 'schedule') : ''
+        ].join('');
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const typeColors = {
             client_meeting: '#1B5E3B',
@@ -1106,6 +1174,7 @@ async function renderSchedule() {
                 </div>`;
         }).join('');
         wrapper.innerHTML = `
+            ${warnings}
             <div class="content-header">
                 <div>
                     <h4>Schedule</h4>
@@ -1187,7 +1256,7 @@ async function renderSchedule() {
         `;
     }
     catch (err) {
-        wrapper.innerHTML = '<div class="alert alert-danger">Failed to load schedule</div>';
+        wrapper.innerHTML = pageError('Schedule', err, 'schedule');
     }
 }
 async function viewAppointmentDetails(id, conflict) {
@@ -1353,10 +1422,14 @@ async function renderCalendar() {
     const startDate = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
     const endDate = `${year}-${(month + 1).toString().padStart(2, '0')}-${daysInMonth.toString().padStart(2, '0')}`;
     try {
-        const [schedules, bookings] = await Promise.all([
-            api.getSchedules(undefined, startDate, endDate, currentUser?.role === 'ceo' ? 'mine' : 'all'),
-            api.getBookings()
-        ]);
+        const schedulesLoad = await loadSection(api.getSchedules(undefined, startDate, endDate, currentUser?.role === 'ceo' ? 'mine' : 'all'), []);
+        const bookingsLoad = await loadSection(api.getBookings(), []);
+        const schedules = schedulesLoad.value;
+        const bookings = bookingsLoad.value;
+        const warnings = [
+            !schedulesLoad.ok ? sectionWarning('Events', schedulesLoad.error, 'calendar') : '',
+            !bookingsLoad.ok ? sectionWarning('Appointment requests', bookingsLoad.error, 'calendar') : ''
+        ].join('');
         // Overlap detection across the month for confirmed appointments + active
         // booking requests, using the same minute-based rule as the week view.
         const activeStatuses = ['pending', 'accepted'];
@@ -1414,6 +1487,7 @@ async function renderCalendar() {
                 </div>`;
         }
         wrapper.innerHTML = `
+            ${warnings}
             <div class="content-header">
                 <div>
                     <h4>Calendar</h4>
@@ -1435,7 +1509,7 @@ async function renderCalendar() {
         `;
     }
     catch (err) {
-        wrapper.innerHTML = '<div class="alert alert-danger">Failed to load calendar</div>';
+        wrapper.innerHTML = pageError('Calendar', err, 'calendar');
     }
 }
 function changeMonth(delta) {
@@ -1479,7 +1553,7 @@ async function renderAvailability() {
         `;
     }
     catch (err) {
-        wrapper.innerHTML = '<div class="alert alert-danger">Failed to load availability</div>';
+        wrapper.innerHTML = pageError('Availability', err, 'availability');
     }
 }
 async function addAvailability() {
@@ -1556,7 +1630,7 @@ async function renderBookings() {
         `;
     }
     catch (err) {
-        wrapper.innerHTML = '<div class="alert alert-danger">Failed to load bookings</div>';
+        wrapper.innerHTML = pageError('Bookings', err, 'bookings');
     }
 }
 function filterBookings(status, btn) {

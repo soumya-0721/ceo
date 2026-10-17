@@ -9,6 +9,7 @@
     "start": "node dist/server.js",
     "migrate": "ts-node src/config/migrate.ts",
     "migrate:scheduling": "ts-node src/config/migrate-scheduling.ts",
+    "inspect:scheduling": "ts-node src/config/inspect-scheduling-schema.ts",
     "test": "node --test \"dist/lib/**/*.test.js\""
   },
   "dependencies": {
