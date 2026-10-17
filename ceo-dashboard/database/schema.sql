@@ -55,6 +55,7 @@ CREATE TABLE availability (
 -- Bookings table
 CREATE TABLE bookings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id),
     booked_by_name VARCHAR(100) NOT NULL,
     booked_by_email VARCHAR(150) NOT NULL,
     company VARCHAR(200),

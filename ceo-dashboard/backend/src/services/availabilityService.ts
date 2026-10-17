@@ -1,4 +1,5 @@
 import pool from '../config/database';
+import { normalizeTime, toMinutes } from '../lib/scheduling';
 
 export class AvailabilityService {
     async getByUser(userId: string) {
@@ -29,8 +30,28 @@ export class AvailabilityService {
     }
 
     async upsert(userId: string, dayOfWeek: number, startTime: string, endTime: string, isAvailable: boolean, label?: string) {
+        const overlapCheck = await pool.query(
+            `SELECT id, start_time, end_time FROM availability
+             WHERE user_id=$1 AND day_of_week=$2 AND is_available IS NOT FALSE`,
+            [userId, dayOfWeek]
+        );
+
+        const newStart = normalizeTime(startTime);
+        const newEnd = normalizeTime(endTime);
+
+        // Check for overlapping slots on the same day
+        const hasOverlap = overlapCheck.rows.some((r: any) => {
+            const existingStart = normalizeTime(r.start_time);
+            const existingEnd = normalizeTime(r.end_time);
+            return toMinutes(newStart) < toMinutes(existingEnd) && toMinutes(newEnd) > toMinutes(existingStart);
+        });
+
+        if (hasOverlap) {
+            throw { httpStatus: 409, body: { error: 'This time slot overlaps with an existing availability entry' } };
+        }
+
         const existing = await pool.query(
-            'SELECT id FROM availability WHERE user_id=$1 AND day_of_week=$2 AND start_time=$3 AND end_time=$4',
+            `SELECT id FROM availability WHERE user_id=$1 AND day_of_week=$2 AND start_time=$3 AND end_time=$4`,
             [userId, dayOfWeek, startTime, endTime]
         );
 

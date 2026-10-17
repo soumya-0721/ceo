@@ -24,18 +24,18 @@ export declare function dateRange(startDate: string, endDate: string): string[];
 /** Local calendar date as YYYY-MM-DD (no UTC drift). */
 export declare function todayStr(): string;
 export declare class SlotService {
-    /** Open windows for a date: availability rows for that weekday, else default working hours. */
-    getWorkingWindows(date: string): Promise<TimeRange[]>;
+    /** Open windows for a date: availability rows for that weekday (user-scoped), else default working hours. */
+    getWorkingWindows(date: string, userId?: string): Promise<TimeRange[]>;
     /** Every occupied period for a date (schedules of both users + focus + bookings), merged. */
-    getBusyRanges(date: string): Promise<TimeRange[]>;
-    getFreeWindows(date: string): Promise<TimeRange[]>;
+    getBusyRanges(date: string, userId?: string): Promise<TimeRange[]>;
+    getFreeWindows(date: string, userId?: string): Promise<TimeRange[]>;
     /** Discrete start times (stepping by `duration`) that fit entirely inside a free window. */
     getAvailableSlots(date: string, durationMinutes: number): Promise<Slot[]>;
-    isSlotAvailable(date: string, startTime: string, durationMinutes: number): Promise<boolean>;
+    isSlotAvailable(date: string, startTime: string, durationMinutes: number, userId?: string): Promise<boolean>;
     /** Candidate replacements when a requested time is taken. */
     suggestSlots(date: string, durationMinutes: number, limit?: number): Promise<Slot[]>;
     /** Week data for the schedule dashboards: free windows + totals per day. */
-    getWeekOverview(startDate: string, endDate: string): Promise<{
+    getWeekOverview(startDate: string, endDate: string, userId: string): Promise<{
         start: string;
         end: string;
         days: {

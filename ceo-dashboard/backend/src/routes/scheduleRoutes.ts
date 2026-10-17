@@ -99,7 +99,7 @@ router.get('/week', async (req: AuthRequest, res: Response) => {
             res.status(400).json({ error: 'startDate and endDate are required (YYYY-MM-DD)' });
             return;
         }
-        const overview = await slotService.getWeekOverview(startDate, endDate);
+        const overview = await slotService.getWeekOverview(startDate, endDate, req.user!.id);
         res.json(overview);
     } catch (error: any) {
         res.status(500).json({ error: error.message || 'Failed to get week overview' });
