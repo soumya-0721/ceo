@@ -130,10 +130,8 @@ class SlotService {
             ? `SELECT start_time, end_time FROM schedules WHERE schedule_date = $1 AND status = 'active' AND user_id = $2`
             : `SELECT start_time, end_time FROM schedules WHERE schedule_date = $1 AND status = 'active'`;
         const scheduleParams = userId ? [date, userId] : [date];
-        const bookingsQuery = userId
-            ? `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled') AND user_id = $2`
-            : `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled')`;
-        const bookingsParams = userId ? [date, userId] : [date];
+        const bookingsQuery = `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled')`;
+        const bookingsParams = [date];
         const [schedules, focus, bookings] = await Promise.all([
             (0, database_1.queryRetry)(scheduleQuery, scheduleParams),
             (0, database_1.queryRetry)(`SELECT start_time, end_time FROM focus_sessions WHERE focus_date = $1 AND status = 'active'`, [date]),
@@ -200,7 +198,7 @@ class SlotService {
             (0, database_1.queryRetry)(`SELECT focus_date, start_time, end_time FROM focus_sessions
                  WHERE focus_date BETWEEN $1 AND $2 AND status = 'active'`, [startDate, endDate]),
             (0, database_1.queryRetry)(`SELECT booking_date, preferred_time, duration FROM bookings
-                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted','rescheduled') AND user_id = $3`, [startDate, endDate, userId])
+                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted','rescheduled')`, [startDate, endDate])
         ]);
         const workingByDay = new Map();
         for (const row of availability.rows) {

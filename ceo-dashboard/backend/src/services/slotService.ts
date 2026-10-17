@@ -156,10 +156,8 @@ export class SlotService {
             : `SELECT start_time, end_time FROM schedules WHERE schedule_date = $1 AND status = 'active'`;
         const scheduleParams = userId ? [date, userId] : [date];
 
-        const bookingsQuery = userId
-            ? `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled') AND user_id = $2`
-            : `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled')`;
-        const bookingsParams = userId ? [date, userId] : [date];
+        const bookingsQuery = `SELECT preferred_time, duration FROM bookings WHERE booking_date = $1 AND status IN ('pending','accepted','rescheduled')`;
+        const bookingsParams = [date];
 
         const [schedules, focus, bookings] = await Promise.all([
             queryRetry(scheduleQuery, scheduleParams),
@@ -241,8 +239,8 @@ const [availability, schedules, focus, bookings] = await Promise.all([
             ),
             queryRetry(
                 `SELECT booking_date, preferred_time, duration FROM bookings
-                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted','rescheduled') AND user_id = $3`,
-                [startDate, endDate, userId]
+                 WHERE booking_date BETWEEN $1 AND $2 AND status IN ('pending','accepted','rescheduled')`,
+                [startDate, endDate]
             )
         ]);
 
